@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="WikiLupe: una página para agregar personas del rol de Discord Comunidad Fachera Fake.">
+  <title><%= typeof title !== 'undefined' && title ? title + ' · WikiLupe' : 'WikiLupe' %></title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/" aria-label="Ir al inicio de WikiLupe">
+        <span class="brand-mark">W</span>
+        <span class="brand-name">Wiki<strong>Lupe</strong></span>
+      </a>
+
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="siteNav" id="navToggle">
+        <span></span><span></span><span></span>
+        <span class="sr-only">Abrir menú</span>
+      </button>
+
+      <nav class="site-nav" id="siteNav" aria-label="Navegación principal">
+        <a href="/" class="<%= currentPath === '/' ? 'active' : '' %>">Inicio</a>
+        <a href="/personajes" class="<%= currentPath.startsWith('/personajes') ? 'active' : '' %>">Personajes</a>
+        <a href="/usuarios" class="<%= currentPath.startsWith('/usuarios') ? 'active' : '' %>">Perfiles</a>
+
+        <% if (user) { %>
+          <a href="/personajes/nuevo" class="<%= currentPath === '/personajes/nuevo' ? 'active' : '' %>">Subir personaje</a>
+          <a href="/perfil" class="<%= currentPath.startsWith('/perfil') ? 'active' : '' %>">Mi perfil</a>
+          <% if (user.is_admin) { %>
+            <a href="/admin" class="<%= currentPath.startsWith('/admin') ? 'active' : '' %>">Admin</a>
+          <% } %>
+          <form action="/auth/logout" method="POST" class="logout-form">
+            <button type="submit" class="btn btn-ghost btn-sm">Salir</button>
+          </form>
+        <% } else { %>
+          <a href="/auth/login" class="<%= currentPath === '/auth/login' ? 'active' : '' %>">Iniciar sesión</a>
+          <a href="/auth/register" class="btn btn-primary btn-sm">Crear cuenta</a>
+        <% } %>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container page">
+    <% if (typeof flash !== 'undefined' && flash) { %>
+      <div class="alert alert-<%= flash.type %>" role="status">
+        <span><%= flash.message %></span>
+        <button type="button" class="alert-close" aria-label="Cerrar aviso">&times;</button>
+      </div>
+    <% } %>

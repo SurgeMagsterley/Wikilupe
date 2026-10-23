@@ -1,0 +1,337 @@
+<%- include('../partials/head') %>
+
+<nav class="breadcrumbs" aria-label="Migas de pan">
+  <a href="/personajes">Personajes</a>
+  <span>/</span>
+  <span><%= character.name %></span>
+</nav>
+
+<article
+  class="character-page character-scene<%= (typeof heroImage !== 'undefined' && heroImage) ? ' has-char-image' : '' %>"
+  id="characterScene"
+  style="--char-bg: <%= heroColor %>"
+  data-element="<%= character.element %>"
+  data-emoji="<%= theme.emoji %>"
+>
+  <div class="scene-backdrop" aria-hidden="true">
+    <% if (typeof heroImage !== 'undefined' && heroImage) { %>
+      <div class="scene-image" style="background-image: url('/uploads/characters/<%= heroImage %>')"></div>
+    <% } %>
+    <span class="scene-aurora scene-aurora-one"></span>
+    <span class="scene-aurora scene-aurora-two"></span>
+    <div class="scene-particles" id="sceneParticles"></div>
+  </div>
+
+  <header class="character-hero panel">
+    <div class="character-gallery">
+      <% if (images.length) { %>
+        <div class="gallery-main" id="galleryMain">
+          <img
+            id="galleryImage"
+            src="/uploads/characters/<%= images[0].filename %>"
+            alt="Foto de <%= character.name %><%= images[0].nickname ? ' — ' + images[0].nickname : '' %>"
+          >
+          <span class="photo-caption" id="galleryCaption">
+            <%= images[0].nickname || 'Sin apodo' %>
+          </span>
+        </div>
+
+        <% if (images.length > 1) { %>
+          <div class="gallery-thumbs" aria-label="Galería de fotos">
+            <% images.forEach((image, index) => { %>
+              <button
+                type="button"
+                class="gallery-thumb <%= index === 0 ? 'active' : '' %>"
+                data-src="/uploads/characters/<%= image.filename %>"
+                data-caption="<%= image.nickname || 'Sin apodo' %>"
+                aria-label="Ver foto <%= index + 1 %><%= image.nickname ? ': ' + image.nickname : '' %>"
+              >
+                <img src="/uploads/characters/<%= image.filename %>" alt="" loading="lazy">
+              </button>
+            <% }) %>
+          </div>
+        <% } %>
+      <% } else { %>
+        <div class="gallery-main gallery-placeholder">
+          <span class="cover-placeholder"><%= initials(character.name) %></span>
+          <span class="photo-caption">Sin fotos todavía</span>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="character-summary">
+      <div class="badges">
+        <span class="role-badge role-<%= character.role %>"><%= roleInfo(character.role).label %></span>
+        <span class="element-chip"><%= theme.emoji %> <%= character.element %></span>
+      </div>
+
+      <h1><%= character.name %></h1>
+
+      <% if (titleList.length) { %>
+        <ul class="title-chips" aria-label="Títulos del personaje">
+          <% titleList.forEach((title) => { %>
+            <li><%= title %></li>
+          <% }) %>
+        </ul>
+      <% } %>
+
+      <p class="character-owner">
+        Creado por
+        <a href="/usuarios/<%= encodeURIComponent(character.username) %>">@<%= character.username %></a>
+      </p>
+
+      <p class="character-description">
+        <%= character.description || 'Este personaje todavía no tiene una descripción.' %>
+      </p>
+
+      <dl class="meta-list">
+        <div>
+          <dt>Sexo / género</dt>
+          <dd><%= character.gender || 'No especificado' %></dd>
+        </div>
+        <div>
+          <dt>Sexualidad</dt>
+          <dd><%= character.sexuality || 'No especificada' %></dd>
+        </div>
+        <div>
+          <dt>Fotos</dt>
+          <dd><%= images.length %></dd>
+        </div>
+        <div>
+          <dt>Relaciones</dt>
+          <dd><%= relationCount %></dd>
+        </div>
+        <div>
+          <dt>Actualizado</dt>
+          <dd><%= formatDate(character.updated_at) %></dd>
+        </div>
+      </dl>
+
+      <% if (editable) { %>
+        <div class="owner-actions">
+          <a class="btn btn-primary btn-sm" href="/personajes/<%= character.id %>/editar">Editar personaje</a>
+          <form
+            action="/personajes/<%= character.id %>/eliminar"
+            method="POST"
+            data-confirm="¿Seguro que quieres eliminar a <%= character.name %>? Esta acción no se puede deshacer."
+          >
+            <input type="hidden" name="redirect" value="<%= user.is_admin && user.id !== character.user_id ? 'admin' : 'perfil' %>">
+            <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+          </form>
+        </div>
+        <% if (user.is_admin && user.id !== character.user_id) { %>
+          <p class="admin-note">Estás viendo esta ficha como superadmin.</p>
+        <% } %>
+      <% } %>
+    </div>
+  </header>
+
+  <div class="detail-grid">
+    <div class="detail-main">
+      <% if (infoItems.length) { %>
+        <section class="panel">
+          <div class="section-heading compact-heading">
+            <h2>Información personal</h2>
+            <span class="badge"><%= infoItems.length %></span>
+          </div>
+
+          <div class="info-grid">
+            <% infoItems.forEach((item) => { %>
+              <div class="info-item">
+                <span class="info-icon"><%= item.icon %></span>
+                <span class="info-label"><%= item.label %></span>
+                <strong class="info-value"><%= item.value %></strong>
+              </div>
+            <% }) %>
+          </div>
+        </section>
+      <% } %>
+
+      <% if (combatItems.length || character.powers) { %>
+        <section class="panel">
+          <div class="section-heading compact-heading">
+            <h2>Combate y habilidades</h2>
+          </div>
+
+          <% if (combatItems.length) { %>
+            <div class="combat-grid">
+              <% combatItems.forEach((item) => { %>
+                <div class="info-item">
+                  <span class="info-icon"><%= item.icon %></span>
+                  <span class="info-label"><%= item.label %></span>
+                  <strong class="info-value"><%= item.value %></strong>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+
+          <% if (character.powers) { %>
+            <div class="prose-block"><%= character.powers %></div>
+          <% } %>
+        </section>
+      <% } %>
+
+      <% if (character.feats) { %>
+        <section class="panel">
+          <div class="section-heading compact-heading">
+            <h2>Hazañas</h2>
+          </div>
+          <div class="prose-block"><%= character.feats %></div>
+        </section>
+      <% } %>
+
+      <% if (character.history) { %>
+        <section class="panel">
+          <div class="section-heading compact-heading">
+            <h2>Historia</h2>
+          </div>
+          <div class="prose-block prose-block-large"><%= character.history %></div>
+        </section>
+      <% } %>
+
+      <section class="panel">
+        <div class="section-heading compact-heading">
+          <h2>Estadísticas</h2>
+          <span class="badge"><%= hasStats ? 'Sin límite máximo' : 'Opcionales' %></span>
+        </div>
+
+        <% if (hasStats) { %>
+          <div class="stats-display">
+            <% stats.forEach((stat) => { %>
+              <div class="stat-card">
+                <span class="stat-icon"><%= stat.icon %></span>
+                <span class="stat-label"><%= stat.label %></span>
+                <strong class="stat-value"><%= stat.value !== null && stat.value !== undefined ? Number(stat.value).toLocaleString('es-419') : '—' %></strong>
+              </div>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <p class="muted">Este personaje no tiene estadísticas cargadas.</p>
+        <% } %>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading compact-heading">
+          <h2>Datos curiosos</h2>
+          <span class="badge"><%= facts.length %></span>
+        </div>
+
+        <% if (facts.length) { %>
+          <ul class="facts-list">
+            <% facts.forEach((fact) => { %>
+              <li><%= fact.content %></li>
+            <% }) %>
+          </ul>
+        <% } else { %>
+          <p class="muted">Todavía no hay datos curiosos. El dueño o la administración pueden agregarlos editando la ficha.</p>
+        <% } %>
+      </section>
+    </div>
+
+    <aside class="detail-side">
+      <section class="panel" id="relaciones">
+        <div class="section-heading compact-heading">
+          <h2>Árbol de relaciones</h2>
+          <span class="badge"><%= relationCount %></span>
+        </div>
+
+        <% if (relationCount === 0) { %>
+          <p class="muted">Sin vínculos registrados por ahora.</p>
+        <% } %>
+
+        <% relationGroups.forEach((group) => { %>
+          <div class="relation-group">
+            <h3><%= group.emoji %> <%= group.label %> <span class="count"><%= group.items.length %></span></h3>
+
+            <% if (group.items.length) { %>
+              <ul class="relation-list">
+                <% group.items.forEach((relation) => { %>
+                  <li class="relation-item">
+                    <% if (relation.related_character_id) { %>
+                      <a class="relation-person" href="/personajes/<%= relation.related_character_id %>">
+                        <span class="mini-avatar">
+                          <% if (relation.related_cover) { %>
+                            <img src="/uploads/characters/<%= relation.related_cover %>" alt="" loading="lazy">
+                          <% } else { %>
+                            <%= initials(relation.related_name) %>
+                          <% } %>
+                        </span>
+                        <span class="relation-info">
+                          <strong><%= relation.related_name %></strong>
+                          <small>@<%= relation.related_username %> · <%= roleInfo(relation.related_role).label %></small>
+                        </span>
+                      </a>
+                    <% } else { %>
+                      <span class="relation-person">
+                        <span class="mini-avatar"><%= initials(relation.external_name) %></span>
+                        <span class="relation-info">
+                          <strong><%= relation.external_name %></strong>
+                          <small>Personaje externo</small>
+                        </span>
+                      </span>
+                    <% } %>
+
+                    <% if (editable) { %>
+                      <form
+                        action="/personajes/<%= character.id %>/relaciones/<%= relation.id %>/eliminar"
+                        method="POST"
+                        data-confirm="¿Quitar esta relación del árbol?"
+                      >
+                        <button type="submit" class="icon-btn" aria-label="Eliminar relación" title="Eliminar relación">&times;</button>
+                      </form>
+                    <% } %>
+                  </li>
+                <% }) %>
+              </ul>
+            <% } else { %>
+              <p class="tiny-muted">Sin registros.</p>
+            <% } %>
+          </div>
+        <% }) %>
+
+        <% if (editable) { %>
+          <form action="/personajes/<%= character.id %>/relaciones" method="POST" class="relation-form">
+            <h3>Agregar relación</h3>
+
+            <label>
+              Tipo de vínculo
+              <select name="relation_type" required>
+                <% RELATION_TYPES.forEach((type) => { %>
+                  <option value="<%= type.value %>"><%= type.emoji %> <%= type.label %></option>
+                <% }) %>
+              </select>
+            </label>
+
+            <label>
+              Buscar personaje del sitio
+              <input type="search" id="relationSearch" placeholder="Filtrar por nombre o usuario…" autocomplete="off">
+            </label>
+
+            <label>
+              Personaje del sitio
+              <select name="related_character_id" id="relatedCharacterSelect">
+                <option value="">— Ninguno / personaje externo —</option>
+                <% candidates.forEach((candidate) => { %>
+                  <option value="<%= candidate.id %>">
+                    <%= candidate.name %> (@<%= candidate.username %>) · <%= roleInfo(candidate.role).label %>
+                  </option>
+                <% }) %>
+              </select>
+              <small class="hint">Incluye personajes de otras cuentas.</small>
+            </label>
+
+            <label>
+              O nombre de un personaje externo
+              <input type="text" name="external_name" maxlength="80" placeholder="Ej: Personaje que no está en WikiLupe">
+              <small class="hint">Si eliges un personaje del sitio, este campo se ignora.</small>
+            </label>
+
+            <button type="submit" class="btn btn-secondary btn-block">Agregar al árbol</button>
+          </form>
+        <% } %>
+      </section>
+    </aside>
+  </div>
+</article>
+
+<%- include('../partials/footer') %>

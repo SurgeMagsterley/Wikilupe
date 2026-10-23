@@ -1,0 +1,75 @@
+<%- include('../partials/head') %>
+
+<nav class="breadcrumbs" aria-label="Migas de pan">
+  <a href="/usuarios">Perfiles</a>
+  <span>/</span>
+  <span>@<%= account.username %></span>
+</nav>
+
+<section class="profile-header panel">
+  <div class="profile-main">
+    <div class="profile-avatar">
+      <% if (account.avatar) { %>
+        <img src="/uploads/avatars/<%= account.avatar %>" alt="Foto de perfil de <%= account.username %>">
+      <% } else { %>
+        <span><%= initials(account.username) %></span>
+      <% } %>
+    </div>
+
+    <div class="profile-info">
+      <span class="eyebrow">Perfil público</span>
+      <h1>@<%= account.username %></h1>
+      <div class="profile-badges">
+        <% if (account.is_admin) { %><span class="badge badge-admin">Superadmin</span><% } %>
+        <span class="badge">Miembro desde <%= formatDate(account.created_at) %></span>
+      </div>
+      <p class="muted">
+        Todos los personajes que esta persona creó para la Comunidad Fachera Fake.
+      </p>
+    </div>
+  </div>
+
+  <div class="profile-actions">
+    <a class="btn btn-primary" href="/personajes?creador=<%= encodeURIComponent(account.username) %>">Ver sus personajes</a>
+    <% if (user && user.id === account.id) { %>
+      <a class="btn btn-ghost" href="/perfil">Editar mi perfil</a>
+    <% } %>
+  </div>
+</section>
+
+<div class="profile-stats">
+  <div class="mini-stat"><strong><%= characters.length %></strong><span>Personajes</span></div>
+  <div class="mini-stat"><strong><%= totalPhotos %></strong><span>Fotos subidas</span></div>
+  <div class="mini-stat"><strong><%= formatDate(account.created_at) %></strong><span>Miembro desde</span></div>
+</div>
+
+<section class="section">
+  <div class="section-heading">
+    <div>
+      <span class="eyebrow">Sus fichas</span>
+      <h2>Personajes de @<%= account.username %></h2>
+    </div>
+    <a href="/personajes?creador=<%= encodeURIComponent(account.username) %>" class="link-arrow">Ver en el archivo &rarr;</a>
+  </div>
+
+  <% if (characters.length) { %>
+    <div class="character-grid">
+      <% characters.forEach((character) => { %>
+        <%- include('../partials/character-card', { character }) %>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="empty-state">
+      <span class="empty-icon">🧬</span>
+      <h3>Este perfil todavía no tiene personajes</h3>
+      <p>Cuando cree su primera ficha, aparecerá aquí junto al resto de la comunidad.</p>
+      <% if (user && user.id === account.id) { %>
+        <a class="btn btn-primary" href="/personajes/nuevo">Crear mi primer personaje</a>
+      <% } else { %>
+        <a class="btn btn-ghost" href="/personajes">Explorar otros personajes</a>
+      <% } %>
+    </div>
+  <% } %>
+</section>
+
+<%- include('../partials/footer') %>

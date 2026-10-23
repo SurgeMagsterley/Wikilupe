@@ -1,0 +1,103 @@
+<%- include('partials/head') %>
+
+<section class="profile-header panel">
+  <div class="profile-main">
+    <div class="profile-avatar">
+      <% if (user.avatar) { %>
+        <img src="/uploads/avatars/<%= user.avatar %>" alt="Foto de perfil de <%= user.username %>">
+      <% } else { %>
+        <span><%= initials(user.username) %></span>
+      <% } %>
+    </div>
+
+    <div class="profile-info">
+      <span class="eyebrow">Mi perfil</span>
+      <h1><%= user.username %></h1>
+      <div class="profile-badges">
+        <% if (user.is_admin) { %><span class="badge badge-admin">Superadmin</span><% } %>
+        <span class="badge">Miembro desde <%= formatDate(user.created_at) %></span>
+      </div>
+      <p class="muted">Aquí administras tu foto de perfil, tu contraseña y todos tus personajes vinculados.</p>
+    </div>
+  </div>
+
+  <div class="profile-actions">
+    <a class="btn btn-primary" href="/personajes/nuevo">+ Subir personaje</a>
+    <a class="btn btn-ghost" href="/usuarios/<%= encodeURIComponent(user.username) %>">Ver mi perfil público</a>
+  </div>
+</section>
+
+<div class="profile-stats">
+  <div class="mini-stat"><strong><%= characters.length %></strong><span>Personajes</span></div>
+  <div class="mini-stat"><strong><%= totalPhotos %></strong><span>Fotos subidas</span></div>
+  <div class="mini-stat"><strong>15</strong><span>Días de sesión</span></div>
+</div>
+
+<div class="profile-grid">
+  <section class="panel">
+    <h2>Foto de perfil</h2>
+    <p class="muted">Se muestra en tu perfil. Formatos JPG, PNG, WEBP o GIF de hasta 4 MB.</p>
+
+    <form action="/perfil/avatar" method="POST" enctype="multipart/form-data" class="stack">
+      <label class="file-drop">
+        <span>Elegir imagen</span>
+        <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp,image/gif" required>
+        <small>La imagen se reemplaza si ya tenías una.</small>
+      </label>
+
+      <button type="submit" class="btn btn-secondary">Actualizar foto</button>
+    </form>
+  </section>
+
+  <section class="panel" id="seguridad">
+    <h2>Cambiar contraseña</h2>
+    <p class="muted">Si no recuerdas la actual, la administración puede cambiarla manualmente desde el panel de superadmin.</p>
+
+    <form action="/perfil/password" method="POST" class="stack">
+      <label>
+        Contraseña actual
+        <input type="password" name="current_password" maxlength="72" autocomplete="current-password" required>
+      </label>
+
+      <div class="form-grid">
+        <label>
+          Contraseña nueva
+          <input type="password" name="new_password" minlength="6" maxlength="72" autocomplete="new-password" required>
+        </label>
+        <label>
+          Repetir nueva
+          <input type="password" name="confirm_password" minlength="6" maxlength="72" autocomplete="new-password" required>
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-secondary">Cambiar contraseña</button>
+    </form>
+  </section>
+</div>
+
+<section class="section">
+  <div class="section-heading">
+    <div>
+      <span class="eyebrow">Tus fichas</span>
+      <h2>Personajes vinculados</h2>
+    </div>
+    <a href="/personajes/nuevo" class="link-arrow">Sumar otro &rarr;</a>
+  </div>
+
+  <% if (characters.length) { %>
+    <div class="character-grid">
+      <% characters.forEach((character) => { %>
+        <%- include('partials/character-card', { character }) %>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="empty-state">
+      <span class="empty-icon">🧬</span>
+      <h3>Todavía no has creado ningún personaje</h3>
+      <p>Sube tu primera ficha con fotos, elemento, estadísticas y relaciones.</p>
+      <a class="btn btn-primary" href="/personajes/nuevo">Crear mi primer personaje</a>
+    </div>
+  <% } %>
+</section>
+
+<%- include('partials/footer') %>

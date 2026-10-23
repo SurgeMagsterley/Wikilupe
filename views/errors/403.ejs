@@ -1,0 +1,13 @@
+<%- include('../partials/head') %>
+
+<section class="error-page">
+  <span class="error-code">403</span>
+  <h1>Acceso denegado</h1>
+  <p class="lead compact">No tienes permiso para ver esta sección. Si crees que es un error, contacta a la administración.</p>
+  <div class="empty-actions">
+    <a class="btn btn-primary" href="/">Volver al inicio</a>
+    <% if (!user) { %><a class="btn btn-ghost" href="/auth/login">Iniciar sesión</a><% } %>
+  </div>
+</section>
+
+<%- include('../partials/footer') %>

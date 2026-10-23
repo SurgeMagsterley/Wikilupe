@@ -1,0 +1,475 @@
+<%- include('../partials/head') %>
+
+<nav class="breadcrumbs" aria-label="Migas de pan">
+  <a href="/personajes">Personajes</a>
+  <span>/</span>
+  <% if (mode === 'edit') { %>
+    <a href="/personajes/<%= character.id %>"><%= character.name %></a>
+    <span>/</span>
+    <span>Editar</span>
+  <% } else { %>
+    <span>Subir personaje</span>
+  <% } %>
+</nav>
+
+<section class="page-heading">
+  <div>
+    <span class="eyebrow"><%= mode === 'edit' ? 'Actualiza la ficha' : 'Nueva ficha' %></span>
+    <h1><%= mode === 'edit' ? 'Editar personaje' : 'Subir personaje' %></h1>
+    <p class="lead compact">
+      <%= mode === 'edit'
+        ? 'Cambia datos, fotos, apodos, color de fondo o estadísticas. Las relaciones se administran desde la ficha pública.'
+        : 'Completa lo que quieras mostrar. Solo el nombre, el elemento y la categoría son obligatorios.' %>
+    </p>
+  </div>
+</section>
+
+<% if (errors.length) { %>
+  <div class="alert alert-error" role="alert">
+    <div>
+      <% errors.forEach((error) => { %>
+        <p><%= error %></p>
+      <% }) %>
+    </div>
+  </div>
+<% } %>
+
+<form
+  action="<%= mode === 'edit' ? '/personajes/' + character.id + '/editar' : '/personajes' %>"
+  method="POST"
+  enctype="multipart/form-data"
+  class="stack-lg"
+  id="characterForm"
+  data-nickname-field="<%= mode === 'edit' ? 'new_nicknames' : 'photo_nicknames' %>"
+>
+  <% if (showQuickIndex) { %>
+    <nav class="form-quick-index panel" aria-label="Índice rápido del formulario">
+      <div class="form-quick-index-header">
+        <span class="eyebrow">Índice rápido</span>
+        <span class="muted small">Acceso directo a las secciones</span>
+      </div>
+      <div class="form-quick-index-links">
+        <a href="#identidad">Identidad</a>
+        <a href="#info-personal">Información personal</a>
+        <a href="#combate-poderes">Combate y poderes</a>
+        <a href="#titulos-hazanas">Títulos y hazañas</a>
+        <a href="#historia">Historia</a>
+        <a href="#fotos-apodos">Fotos y apodos</a>
+        <a href="#estadisticas">Estadísticas</a>
+        <a href="#datos-curiosos">Datos curiosos</a>
+        <a href="#fondo-ficha">Fondo de la ficha</a>
+      </div>
+    </nav>
+  <% } %>
+
+  <details class="panel form-section form-collapsible" id="identidad" <%= showQuickIndex ? '' : 'open' %>>
+    <summary class="form-section-heading form-collapsible-summary">
+      <h2>Identidad del personaje</h2>
+      <span class="step-number">01</span>
+    </summary>
+    <div class="form-collapsible-content">
+
+    <div class="form-grid">
+      <label class="span-2">
+        Nombre original <span class="required">*</span>
+        <input type="text" name="name" value="<%= values.name %>" maxlength="80" required placeholder="El nombre universal del personaje">
+        <small class="hint">Este nombre es único para todo el personaje. Los apodos van en cada foto.</small>
+      </label>
+
+      <label>
+        Elemento <span class="required">*</span>
+        <input type="text" name="element" id="elementInput" value="<%= values.element %>" list="elementOptions" maxlength="40" required placeholder="Ej: Fuego, Oscuridad, Arcana…">
+        <small class="hint">Poder elemental. Puedes escribir uno nuevo; el fondo se adapta si usas el color automático.</small>
+      </label>
+
+      <label>
+        Categoría <span class="required">*</span>
+        <select name="role" required>
+          <% ROLES.forEach((role) => { %>
+            <option value="<%= role.value %>" <%= values.role === role.value ? 'selected' : '' %>><%= role.label %></option>
+          <% }) %>
+        </select>
+        <small class="hint">Define en qué grupo del archivo aparece.</small>
+      </label>
+
+      <label>
+        Universo
+        <input type="text" name="universe" value="<%= values.universe %>" maxlength="120" placeholder="Ej: Universo principal, Multiverso Arcano…">
+        <small class="hint">A qué universo o realidad pertenece el personaje.</small>
+      </label>
+
+      <label>
+        Especie
+        <input type="text" name="species" value="<%= values.species %>" maxlength="60" placeholder="Libre. Ej: Humano, Elfo, Demonio…">
+        <small class="hint">Libre. Puedes escribir el valor que quieras.</small>
+      </label>
+
+      <label>
+        Sexo / género
+        <input type="text" name="gender" value="<%= values.gender %>" list="genderOptions" maxlength="40" placeholder="Ej: No binario">
+      </label>
+
+      <label>
+        Sexualidad
+        <input type="text" name="sexuality" value="<%= values.sexuality %>" list="sexualityOptions" maxlength="40" placeholder="Ej: Pansexual">
+      </label>
+    </div>
+
+    <label class="field-block">
+      Descripción
+      <textarea name="description" rows="7" maxlength="5000" placeholder="Historia breve, personalidad, lo que quieras contar de este personaje…"><%= values.description %></textarea>
+      <small class="hint">Hasta 5000 caracteres.</small>
+    </label>
+    </div>
+  </details>
+
+  <details class="panel form-section form-collapsible" id="info-personal">
+    <summary class="form-section-heading form-collapsible-summary">
+      <h2>Información personal</h2>
+      <span class="step-number">02</span>
+    </summary>
+    <div class="form-collapsible-content">
+
+    <div class="form-grid">
+      <label>
+        Edad
+        <input type="text" name="age" value="<%= values.age %>" maxlength="40" placeholder="Ej: 25, 300 años, aparenta 20">
+      </label>
+
+      <label>
+        Cumpleaños
+        <input type="text" name="birthday" value="<%= values.birthday %>" maxlength="40" placeholder="Ej: 12 de marzo">
+        <small class="hint">Puedes escribir solo el día y el mes.</small>
+      </label>
+
+      <label>
+        Estado civil
+        <input type="text" name="marital_status" value="<%= values.maritalStatus %>" list="maritalOptions" maxlength="60" placeholder="Ej: Soltero/a">
+      </label>
+
+      <label>
+        Estado vital
+        <input type="text" name="life_status" value="<%= values.lifeStatus %>" maxlength="60" placeholder="Ej: Vivo/a, Muerto/a, Desaparecido/a...">
+        <small class="hint">Libre. Puedes escribir el valor que quieras.</small>
+      </label>
+
+      <label>
+        Religión
+        <input type="text" name="religion" value="<%= values.religion %>" maxlength="60" placeholder="Ej: Ninguna, Culto propio, Otra...">
+        <small class="hint">Libre. Puedes escribir el valor que quieras.</small>
+      </label>
+
+      <label>
+        Afiliaciones
+        <input type="text" name="affiliations" value="<%= values.affiliations %>" maxlength="400" placeholder="Ej: Orden de la Luna, Gremio de Cazadores…">
+      </label>
+    </div>
+    </div>
+  </details>
+
+  <details class="panel form-section form-collapsible" id="combate-poderes">
+    <summary class="form-section-heading form-collapsible-summary">
+      <h2>Combate y poderes</h2>
+      <span class="step-number">03</span>
+    </summary>
+    <div class="form-collapsible-content">
+
+    <div class="form-grid">
+      <label>
+        Rol de combate
+        <input type="text" name="combat_role" value="<%= values.combatRole %>" list="combatRoleOptions" maxlength="60" placeholder="Ej: Atacante, Tanque, Sanador…">
+      </label>
+
+      <label>
+        Estilo de combate
+        <input type="text" name="combat_style" value="<%= values.combatStyle %>" maxlength="120" placeholder="Ej: Espada y magia, artes marciales, distancia">
+      </label>
+    </div>
+
+    <label class="field-block">
+      Poderes y habilidades
+      <textarea name="powers" rows="10" maxlength="20000" placeholder="Explica sus poderes, habilidades, límites o transformaciones…"><%= values.powers %></textarea>
+      <small class="hint">Libre. Hasta 20000 caracteres.</small>
+    </label>
+    </div>
+  </details>
+
+  <details class="panel form-section form-collapsible" id="titulos-hazanas">
+    <summary class="form-section-heading form-collapsible-summary">
+      <h2>Títulos y hazañas</h2>
+      <span class="step-number">04</span>
+    </summary>
+    <div class="form-collapsible-content">
+
+    <label class="field-block">
+      Títulos
+      <textarea name="titles" rows="3" maxlength="400" placeholder="Escribe un título por línea.&#10;Ej: Guardián del Alba.&#10;Ej: La Voz del Vacío."><%= values.titles %></textarea>
+      <small class="hint">Un título por línea. Se muestran como distintivos junto al nombre.</small>
+    </label>
+
+    <label class="field-block">
+      Hazañas
+      <textarea name="feats" rows="6" maxlength="3000" placeholder="Logros importantes, batallas, proezas o momentos memorables del personaje…"><%= values.feats %></textarea>
+      <small class="hint">Hasta 3000 caracteres.</small>
+    </label>
+    </div>
+  </details>
+
+  <details class="panel form-section form-collapsible" id="historia">
+    <summary class="form-section-heading form-collapsible-summary">
+      <h2>Historia</h2>
+      <span class="step-number">05</span>
+    </summary>
+    <div class="form-collapsible-content">
+      <label class="field-block">
+        Historia del personaje
+        <textarea name="history" rows="14" maxlength="20000" placeholder="Cuenta la historia completa del personaje, origen, pasado, acontecimientos importantes, desarrollo..."><%= values.history %></textarea>
+        <small class="hint">Libre. Hasta 20000 caracteres.</small>
+      </label>
+    </div>
+  </details>
+
+  <details class="panel form-section form-collapsible" id="fotos-apodos">
+    <summary class="form-section-heading form-collapsible-summary">
+      <h2>Fotos y apodos</h2>
+      <span class="step-number">06</span>
+    </summary>
+    <div class="form-collapsible-content">
+
+    <p class="hint">
+      Puedes subir hasta 12 fotos por personaje. Cada foto muestra un apodo propio:
+      úsalo, por ejemplo, para el <strong>nombre de la ropa</strong> u outfit.
+      El nombre original del personaje sigue siendo universal.
+    </p>
+
+    <% if (mode === 'edit' && images.length) { %>
+      <div class="existing-images">
+        <% images.forEach((image) => { %>
+          <div class="existing-image">
+            <div class="existing-image-thumb">
+              <img src="/uploads/characters/<%= image.filename %>" alt="Foto de <%= values.name %>" loading="lazy">
+            </div>
+            <label>
+              Apodo de esta foto
+              <input type="text" name="nickname_<%= image.id %>" value="<%= image.nickname %>" maxlength="60" placeholder="Ej: Outfit de invierno">
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="remove_image_<%= image.id %>" value="1">
+              <span>Eliminar esta foto</span>
+            </label>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <label class="file-drop">
+      <span class="file-drop-title"><%= mode === 'edit' ? 'Agregar más fotos' : 'Elegir fotos del personaje' %></span>
+      <input type="file" name="photos" id="photoInput" accept="image/jpeg,image/png,image/webp,image/gif" multiple>
+      <small>JPG, PNG, WEBP o GIF · máximo 8 MB por foto · hasta 12 fotos</small>
+    </label>
+
+    <div id="photoNicknames" class="photo-nicknames"></div>
+    </div>
+  </details>
+
+  <details class="panel form-section form-collapsible" id="estadisticas">
+    <summary class="form-section-heading form-collapsible-summary">
+      <h2>Estadísticas <span class="optional">(opcional)</span></h2>
+      <span class="step-number">07</span>
+    </summary>
+    <div class="form-collapsible-content">
+
+    <p class="hint">Deja vacío cualquier campo que no quieras completar. No hay límite máximo: pon los valores que quieras.</p>
+
+    <div class="form-grid stats-form-grid">
+      <label>
+        Ataque físico
+        <input type="number" name="stat_physical_attack" value="<%= values.stats.physicalAttack ?? '' %>" step="1" placeholder="—">
+      </label>
+      <label>
+        Ataque especial
+        <input type="number" name="stat_special_attack" value="<%= values.stats.specialAttack ?? '' %>" step="1" placeholder="—">
+      </label>
+      <label>
+        Defensa física
+        <input type="number" name="stat_physical_defense" value="<%= values.stats.physicalDefense ?? '' %>" step="1" placeholder="—">
+      </label>
+      <label>
+        Defensa especial
+        <input type="number" name="stat_special_defense" value="<%= values.stats.specialDefense ?? '' %>" step="1" placeholder="—">
+      </label>
+      <label>
+        Velocidad
+        <input type="number" name="stat_speed" value="<%= values.stats.speed ?? '' %>" step="1" placeholder="—">
+      </label>
+    </div>
+    </div>
+  </details>
+
+  <details class="panel form-section form-collapsible" id="datos-curiosos">
+    <summary class="form-section-heading form-collapsible-summary">
+      <h2>Datos curiosos</h2>
+      <span class="step-number">08</span>
+    </summary>
+    <div class="form-collapsible-content">
+
+    <label class="field-block">
+      <span class="sr-only">Datos curiosos</span>
+      <textarea name="facts" rows="6" placeholder="Escribe un dato curioso por línea.&#10;Ej: Odia el café.&#10;Ej: Tiene un gato llamado Muffin."><%= values.facts %></textarea>
+      <small class="hint">Un dato por línea. Se muestran como lista en la ficha.</small>
+    </label>
+    </div>
+  </details>
+
+  <details class="panel form-section form-collapsible" id="fondo-ficha">
+    <summary class="form-section-heading form-collapsible-summary">
+      <h2>Fondo de la ficha</h2>
+      <span class="step-number">09</span>
+    </summary>
+    <div class="form-collapsible-content">
+
+    <p class="hint">
+      Elige el color base de la ficha. Si usas el color automático, se toma de la paleta pastel del elemento.
+      Cualquier persona que visite la ficha verá el fondo con el splash art animado.
+    </p>
+
+    <div class="theme-picker">
+      <div class="theme-picker-controls">
+        <label class="color-field">
+          Color personalizado
+          <input
+            type="color"
+            name="bg_color"
+            id="bgColorInput"
+            value="<%= values.bgColor || elementTheme(values.element).colors[0] %>"
+          >
+        </label>
+
+        <label class="checkbox color-auto">
+          <input type="checkbox" name="bg_auto" value="1" id="bgAutoInput" <%= values.bgColor ? '' : 'checked' %>>
+          <span>Usar color automático según el elemento</span>
+        </label>
+
+        <div class="color-swatches" aria-label="Colores sugeridos">
+          <% COLOR_PRESETS.forEach((color) => { %>
+            <button
+              type="button"
+              class="color-swatch"
+              data-color="<%= color %>"
+              style="--swatch: <%= color %>"
+              aria-label="Usar el color <%= color %>"
+              title="<%= color %>"
+            ></button>
+          <% }) %>
+        </div>
+      </div>
+
+      <div
+        class="theme-preview"
+        id="themePreview"
+        data-auto="<%= values.bgColor ? '0' : '1' %>"
+        style="--preview-color: <%= values.bgColor || elementTheme(values.element).colors[0] %>"
+      >
+        <div class="theme-preview-particles" id="themePreviewParticles" aria-hidden="true"></div>
+        <span class="theme-preview-emoji" id="themePreviewEmoji"><%= elementTheme(values.element).emoji %></span>
+        <span class="theme-preview-label">Vista previa del fondo</span>
+      </div>
+    </div>
+
+    <div class="bg-upload">
+      <label>
+        Imagen o GIF de fondo del personaje
+        <input type="file" name="bg_file" id="bgFileInput" accept="image/jpeg,image/png,image/webp,image/gif">
+        <small>JPG, PNG, WEBP o GIF · máximo 8 MB. Se muestra en las tarjetas y en la ficha del personaje.</small>
+      </label>
+
+      <% if (mode === 'edit' && values.bgImage) { %>
+        <div class="bg-current">
+          <div class="bg-current-thumb">
+            <img src="/uploads/characters/<%= values.bgImage %>" alt="Fondo actual del personaje" loading="lazy">
+          </div>
+          <label class="checkbox">
+            <input type="checkbox" name="remove_bg_image" value="1">
+            <span>Quitar fondo personalizado</span>
+          </label>
+        </div>
+      <% } %>
+    </div>
+    </div>
+  </details>
+
+  <section class="panel relation-note">
+    <span class="feature-icon">👪</span>
+    <div>
+      <h3>Árbol de relaciones</h3>
+      <% if (mode === 'edit') { %>
+        <p>
+          Agrega familiares, amigos y conocidos desde la
+          <a href="/personajes/<%= character.id %>#relaciones">ficha pública</a>.
+          Puedes vincular personajes de otras cuentas o escribir un nombre externo.
+        </p>
+      <% } else { %>
+        <p>Después de guardar el personaje podrás agregar relaciones con personajes de otras cuentas.</p>
+      <% } %>
+    </div>
+  </section>
+
+  <div class="form-actions">
+    <a class="btn btn-ghost" href="<%= mode === 'edit' ? '/personajes/' + character.id : '/personajes' %>">Cancelar</a>
+    <button type="submit" class="btn btn-primary btn-lg">
+      <%= mode === 'edit' ? 'Guardar cambios' : 'Crear personaje' %>
+    </button>
+  </div>
+</form>
+
+<datalist id="elementOptions">
+  <% ELEMENTS.forEach((element) => { %>
+    <option value="<%= element.name %>"></option>
+  <% }) %>
+</datalist>
+
+<datalist id="genderOptions">
+  <% GENDERS.forEach((gender) => { %>
+    <option value="<%= gender %>"></option>
+  <% }) %>
+</datalist>
+
+<datalist id="sexualityOptions">
+  <% SEXUALITIES.forEach((sexuality) => { %>
+    <option value="<%= sexuality %>"></option>
+  <% }) %>
+</datalist>
+
+<datalist id="speciesOptions">
+  <% SPECIES.forEach((species) => { %>
+    <option value="<%= species %>"></option>
+  <% }) %>
+</datalist>
+
+<datalist id="maritalOptions">
+  <% MARITAL_STATUSES.forEach((status) => { %>
+    <option value="<%= status %>"></option>
+  <% }) %>
+</datalist>
+
+<datalist id="lifeStatusOptions">
+  <% LIFE_STATUSES.forEach((status) => { %>
+    <option value="<%= status %>"></option>
+  <% }) %>
+</datalist>
+
+<datalist id="religionOptions">
+  <% RELIGIONS.forEach((religion) => { %>
+    <option value="<%= religion %>"></option>
+  <% }) %>
+</datalist>
+
+<datalist id="combatRoleOptions">
+  <% COMBAT_ROLES.forEach((combatRole) => { %>
+    <option value="<%= combatRole %>"></option>
+  <% }) %>
+</datalist>
+
+<script type="application/json" id="elementThemes"><%- JSON.stringify(ELEMENT_THEMES) %></script>
+
+<%- include('../partials/footer') %>

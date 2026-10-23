@@ -1,0 +1,43 @@
+<%- include('../partials/head') %>
+
+<section class="auth-shell">
+  <div class="auth-card panel">
+    <span class="eyebrow">Bienvenido de vuelta</span>
+    <h1>Iniciar sesión</h1>
+    <p class="muted">Tu sesión queda abierta durante 15 días. Nada de iniciar sesión a cada rato.</p>
+
+    <% if (error) { %>
+      <div class="alert alert-error" role="alert"><span><%= error %></span></div>
+    <% } %>
+
+    <form action="/auth/login" method="POST" class="stack">
+      <label>
+        Usuario
+        <input type="text" name="username" value="<%= form.username %>" maxlength="24" autocomplete="username" required autofocus placeholder="Tu usuario">
+      </label>
+
+      <label>
+        Contraseña
+        <input type="password" name="password" maxlength="72" autocomplete="current-password" required placeholder="Tu contraseña">
+      </label>
+
+      <button type="submit" class="btn btn-primary btn-block">Entrar a WikiLupe</button>
+    </form>
+
+    <p class="auth-switch">¿Todavía no tienes cuenta? <a href="/auth/register">Créala aquí</a>.</p>
+  </div>
+
+  <aside class="auth-aside">
+    <span class="eyebrow">WikiLupe</span>
+    <h2>Personajes, historias y vínculos de la Comunidad Fachera Fake.</h2>
+    <ul class="check-list">
+      <li>Fotos con apodos por outfit</li>
+      <li>Estadísticas opcionales sin límites</li>
+      <li>Árbol de relaciones entre cuentas</li>
+      <li>Datos curiosos y categorías de rol</li>
+    </ul>
+    <p class="auth-aside-note">¿Olvidaste tu contraseña? Pídele a la administración que la cambie manualmente desde el panel de superadmin.</p>
+  </aside>
+</section>
+
+<%- include('../partials/footer') %>

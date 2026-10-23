@@ -1,0 +1,160 @@
+<%- include('partials/head') %>
+
+<section class="hero">
+  <div class="hero-copy">
+    <span class="eyebrow">Comunidad Fachera Fake · Rol de Discord</span>
+    <h1>Tus personajes merecen una <span class="gradient-text">ficha legendaria</span>.</h1>
+    <p class="lead">
+      WikiLupe es una página para agregar personas del rol de Discord
+      <strong>Comunidad Fachera Fake</strong>. Crea fichas con fotos y apodos,
+      elemento, títulos, hazañas, poderes, estadísticas, datos curiosos y un árbol
+      de relaciones que puede incluir personajes de otras cuentas.
+    </p>
+
+    <div class="hero-actions">
+      <% if (user) { %>
+        <a class="btn btn-primary" href="/perfil">Ir a mi perfil</a>
+        <a class="btn btn-secondary" href="/personajes/nuevo">Subir personaje</a>
+      <% } else { %>
+        <a class="btn btn-primary" href="/auth/register">Crear mi cuenta</a>
+        <a class="btn btn-ghost" href="/auth/login">Ya tengo cuenta</a>
+      <% } %>
+    </div>
+
+    <div class="hero-stats">
+      <div><strong><%= stats.characters %></strong><span>personajes</span></div>
+      <div><strong><%= stats.users %></strong><span>facheros</span></div>
+      <div><strong><%= stats.relations %></strong><span>relaciones</span></div>
+    </div>
+  </div>
+
+  <div class="hero-art" aria-hidden="true">
+    <div class="showcase-card showcase-back"></div>
+    <div class="showcase-card showcase-front">
+      <span class="role-badge role-protagonista">Protagonista</span>
+      <div class="showcase-avatar">✦</div>
+      <h3>Tu personaje</h3>
+      <p class="showcase-element">🔥 Fuego · No binario</p>
+      <div class="showcase-stats">
+        <span>ATK 9999</span>
+        <span>SPD ∞</span>
+      </div>
+      <div class="showcase-lines"><span></span><span></span><span></span></div>
+    </div>
+    <span class="floating-chip chip-1">📸 Fotos + apodos</span>
+    <span class="floating-chip chip-2">👪 Relaciones</span>
+    <span class="floating-chip chip-3">✨ Datos curiosos</span>
+  </div>
+</section>
+
+<section class="category-strip" aria-label="Categorías de personajes">
+  <% ROLES.forEach((role) => { %>
+    <a href="/personajes?role=<%= role.value %>" class="category-chip role-<%= role.value %>">
+      <%= role.label %>
+      <span><%= roleCounts[role.value] || 0 %></span>
+    </a>
+  <% }) %>
+</section>
+
+<section class="section">
+  <div class="section-heading">
+    <div>
+      <span class="eyebrow">Recién llegados</span>
+      <h2>Personajes de la comunidad</h2>
+    </div>
+    <a href="/personajes" class="link-arrow">Ver todos &rarr;</a>
+  </div>
+
+  <% if (latestCharacters.length) { %>
+    <div class="character-grid">
+      <% latestCharacters.forEach((character) => { %>
+        <%- include('partials/character-card', { character }) %>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="empty-state">
+      <span class="empty-icon">🪄</span>
+      <h3>Todavía no hay personajes</h3>
+      <p>Crea tu cuenta y sé la primera persona en sumar una ficha a WikiLupe.</p>
+      <a class="btn btn-primary" href="<%= user ? '/personajes/nuevo' : '/auth/register' %>">
+        <%= user ? 'Subir el primer personaje' : 'Crear mi cuenta' %>
+      </a>
+    </div>
+  <% } %>
+</section>
+
+<section class="section">
+  <div class="section-heading">
+    <div>
+      <span class="eyebrow">Todo en un solo lugar</span>
+      <h2>¿Qué puedes guardar en cada ficha?</h2>
+    </div>
+  </div>
+
+  <div class="feature-grid">
+    <article class="feature-card">
+      <span class="feature-icon">📸</span>
+      <h3>Galería con apodos</h3>
+      <p>Sube varias fotos por personaje. Cada una tiene su propio apodo, ideal para el nombre de la ropa u outfit, mientras el nombre original es universal.</p>
+    </article>
+    <article class="feature-card">
+      <span class="feature-icon">🔥</span>
+      <h3>Elemento y esencia</h3>
+      <p>Define el poder elemental, la especie, la sexualidad y el sexo o género de tu personaje para que la ficha lo muestre de un vistazo.</p>
+    </article>
+    <article class="feature-card">
+      <span class="feature-icon">📊</span>
+      <h3>Estadísticas sin límites</h3>
+      <p>Ataque físico, ataque especial, defensa física, defensa especial y velocidad. Son opcionales y no tienen tope máximo.</p>
+    </article>
+    <article class="feature-card">
+      <span class="feature-icon">👪</span>
+      <h3>Árbol de relaciones</h3>
+      <p>Arma vínculos familiares, amistades y conocidos. Puedes relacionar personajes de otras cuentas o mencionar personajes externos.</p>
+    </article>
+    <article class="feature-card">
+      <span class="feature-icon">🎭</span>
+      <h3>Categorías claras</h3>
+      <p>Protagonista, co-protagonista, principal, secundario, antagonista, villano, criatura e invocación: cada rol con su propia identidad.</p>
+    </article>
+    <article class="feature-card">
+      <span class="feature-icon">📜</span>
+      <h3>Títulos, hazañas y poderes</h3>
+      <p>Guarda títulos, hazañas, estilo y rol de combate, poderes, universo, afiliaciones, religión, cumpleaños y edad en cada ficha.</p>
+    </article>
+    <article class="feature-card">
+      <span class="feature-icon">🌌</span>
+      <h3>Fondo animado por elemento</h3>
+      <p>Elige el color de fondo de tu personaje. La ficha muestra un splash art pastel con símbolos del elemento flotando en diagonal.</p>
+    </article>
+    <article class="feature-card">
+      <span class="feature-icon">👥</span>
+      <h3>Perfiles de la comunidad</h3>
+      <p>Visita el perfil público de cualquier persona y descubre todos los personajes que creó. También puedes filtrar por creador.</p>
+    </article>
+    <article class="feature-card">
+      <span class="feature-icon">🔐</span>
+      <h3>Cuenta segura</h3>
+      <p>Las contraseñas se guardan hasheadas y tu sesión se mantiene activa por 15 días antes de cerrarse automáticamente.</p>
+    </article>
+  </div>
+</section>
+
+<section class="cta-panel">
+  <div>
+    <span class="eyebrow">Tu historia empieza aquí</span>
+    <h2>¿Listo para sumar a tu personaje?</h2>
+    <p>Entra con tu cuenta o crea una nueva en segundos. Solo necesitas un usuario y una contraseña.</p>
+  </div>
+  <div class="cta-actions">
+    <% if (user) { %>
+      <a class="btn btn-primary" href="/personajes/nuevo">Subir personaje</a>
+      <a class="btn btn-ghost" href="/personajes">Explorar la wiki</a>
+    <% } else { %>
+      <a class="btn btn-primary" href="/auth/register">Crear cuenta gratis</a>
+      <a class="btn btn-ghost" href="/personajes">Explorar la wiki</a>
+    <% } %>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

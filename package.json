@@ -1,0 +1,30 @@
+{
+  "name": "wikilupe",
+  "version": "1.0.0",
+  "description": "WikiLupe - Personajes del rol de Discord Comunidad Fachera Fake",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js",
+    "seed": "node config/seed.js",
+    "reset-password": "node scripts/reset-password.js"
+  },
+  "keywords": [
+    "rol",
+    "personajes",
+    "discord",
+    "wikilupe"
+  ],
+  "author": "Comunidad Fachera Fake",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "dotenv": "^18.0.9",
+    "ejs": "^7.0.2",
+    "express": "^5.3.0",
+    "express-session": "^1.19.0",
+    "multer": "^2.5.0"
+  }
+}

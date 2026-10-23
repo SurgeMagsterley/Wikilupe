@@ -1,0 +1,33 @@
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <a class="brand brand-small" href="/">
+          <span class="brand-mark">W</span>
+          <span class="brand-name">Wiki<strong>Lupe</strong></span>
+        </a>
+        <p class="footer-note">Personajes del rol de Discord <strong>Comunidad Fachera Fake</strong>.</p>
+      </div>
+      <nav class="footer-links" aria-label="Enlaces del pie de página">
+        <a href="/">Inicio</a>
+        <a href="/personajes">Personajes</a>
+        <a href="/usuarios">Perfiles</a>
+        <% if (user) { %>
+          <a href="/perfil">Mi perfil</a>
+          <a href="/personajes/nuevo">Subir personaje</a>
+        <% } else { %>
+          <a href="/auth/login">Iniciar sesión</a>
+          <a href="/auth/register">Crear cuenta</a>
+        <% } %>
+      </nav>
+    </div>
+    <div class="container footer-bottom">
+      <span>&copy; <%= new Date().getFullYear() %> WikiLupe · Hecho por y para la comunidad.</span>
+      <span class="footer-secret">Sesiones seguras de 15 días 🍪</span>
+    </div>
+  </footer>
+
+  <script src="/js/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<%- include('../partials/head') %>
+
+<section class="auth-shell">
+  <div class="auth-card panel">
+    <span class="eyebrow">Sumate a la comunidad</span>
+    <h1>Crear cuenta</h1>
+    <p class="muted">Solo necesitás un usuario y una contraseña. La contraseña se guarda hasheada, nunca en texto plano.</p>
+
+    <% if (error) { %>
+      <div class="alert alert-error" role="alert"><span><%= error %></span></div>
+    <% } %>
+
+    <form action="/auth/register" method="POST" class="stack">
+      <label>
+        Usuario
+        <input type="text" name="username" value="<%= form.username %>" minlength="3" maxlength="24" pattern="[A-Za-z0-9_.\-]{3,24}" title="Entre 3 y 24 caracteres: letras, números, puntos, guiones o guiones bajos." autocomplete="username" required autofocus placeholder="Ej: lupe_fachera">
+        <small class="hint">Entre 3 y 24 caracteres. Puedes usar letras, números, puntos, guiones y guiones bajos.</small>
+      </label>
+
+      <label>
+        Contraseña
+        <input type="password" name="password" minlength="6" maxlength="72" autocomplete="new-password" required placeholder="Mínimo 6 caracteres">
+      </label>
+
+      <label>
+        Repetir contraseña
+        <input type="password" name="confirm_password" minlength="6" maxlength="72" autocomplete="new-password" required placeholder="Repite tu contraseña">
+      </label>
+
+      <button type="submit" class="btn btn-primary btn-block">Crear mi cuenta</button>
+    </form>
+
+    <p class="auth-switch">¿Ya tienes cuenta? <a href="/auth/login">Inicia sesión</a>.</p>
+  </div>
+
+  <aside class="auth-aside">
+    <span class="eyebrow">Tu espacio</span>
+    <h2>Una ficha para cada personaje, con todo lo que lo hace único.</h2>
+    <ul class="check-list">
+      <li>Foto de perfil y personajes vinculados</li>
+      <li>Galería de fotos con apodo por foto</li>
+      <li>Relaciones con personajes de otras cuentas</li>
+      <li>Sesión persistente de hasta 15 días</li>
+    </ul>
+    <p class="auth-aside-note">La cuenta de superadmin es exclusiva para administrar usuarios y cambiar contraseñas olvidadas.</p>
+  </aside>
+</section>
+
+<%- include('../partials/footer') %>

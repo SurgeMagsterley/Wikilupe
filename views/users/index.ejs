@@ -1,0 +1,82 @@
+<%- include('../partials/head') %>
+
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">Comunidad</span>
+    <h1>Perfiles de la comunidad</h1>
+    <p class="lead compact">
+      Conoce a las personas que forman parte de WikiLupe y explora todos los personajes que crearon.
+    </p>
+  </div>
+  <% if (user) { %>
+    <a class="btn btn-primary" href="/personajes/nuevo">+ Subir personaje</a>
+  <% } else { %>
+    <a class="btn btn-primary" href="/auth/register">Crear mi cuenta</a>
+  <% } %>
+</section>
+
+<% if (users.length) { %>
+  <div class="user-community-list">
+    <% users.forEach((account) => { %>
+      <section class="user-community-panel panel">
+        <header class="user-community-header">
+          <a class="user-community-profile" href="/usuarios/<%= encodeURIComponent(account.username) %>">
+            <span class="user-card-avatar user-card-avatar-lg">
+              <% if (account.avatar) { %>
+                <img src="/uploads/avatars/<%= account.avatar %>" alt="Foto de perfil de <%= account.username %>" loading="lazy">
+              <% } else { %>
+                <span><%= initials(account.username) %></span>
+              <% } %>
+            </span>
+            <span class="user-community-info">
+              <strong>@<%= account.username %></strong>
+              <small>Miembro desde <%= formatDate(account.created_at) %></small>
+              <span class="user-card-meta">
+                <span class="badge"><%= account.character_count %> <%= account.character_count === 1 ? 'personaje' : 'personajes' %></span>
+                <% if (account.is_admin) { %><span class="badge badge-admin">Superadmin</span><% } %>
+              </span>
+            </span>
+          </a>
+          <a class="btn btn-ghost btn-sm" href="/usuarios/<%= encodeURIComponent(account.username) %>">Ver perfil completo</a>
+        </header>
+
+        <div class="user-featured">
+          <div class="user-featured-heading">
+            <span class="eyebrow">Personajes destacados</span>
+            <span class="muted small">Los 3 más recientes</span>
+          </div>
+          <% if (account.featured && account.featured.length) { %>
+            <div class="user-featured-grid">
+              <% account.featured.forEach((character) => { %>
+                <a class="user-featured-card" href="/personajes/<%= character.id %>">
+                  <div class="user-featured-cover" <%= character.bg_image ? 'style="background-image: url(/uploads/characters/' + character.bg_image + ')"' : '' %>>
+                    <% if (character.cover) { %>
+                      <img src="/uploads/characters/<%= character.cover %>" alt="Foto de <%= character.name %>" loading="lazy">
+                    <% } else { %>
+                      <span class="user-featured-initials"><%= initials(character.name) %></span>
+                    <% } %>
+                  </div>
+                  <div class="user-featured-body">
+                    <strong><%= character.name %></strong>
+                    <span class="user-featured-meta"><%= elementInfo(character.element).emoji %> <%= character.element %> · <%= roleInfo(character.role).label %></span>
+                  </div>
+                </a>
+              <% }) %>
+            </div>
+          <% } else { %>
+            <p class="muted small">Sin personajes subidos todavía.</p>
+          <% } %>
+        </div>
+      </section>
+    <% }) %>
+  </div>
+<% } else { %>
+  <div class="empty-state">
+    <span class="empty-icon">👥</span>
+    <h3>Todavía no hay perfiles</h3>
+    <p>Crea una cuenta para ser la primera persona en aparecer en la comunidad.</p>
+    <a class="btn btn-primary" href="/auth/register">Crear mi cuenta</a>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>

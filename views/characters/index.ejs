@@ -1,0 +1,128 @@
+<%- include('../partials/head') %>
+
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">Archivo de la comunidad</span>
+    <h1>Personajes</h1>
+    <p class="lead compact">
+      Explora todas las fichas de WikiLupe. Filtra por categoría, elemento o creador,
+      y entra para ver fotos, estadísticas, datos curiosos y relaciones.
+    </p>
+  </div>
+  <a class="btn btn-primary" href="<%= user ? '/personajes/nuevo' : '/auth/register' %>">
+    <%= user ? '+ Subir personaje' : 'Crear cuenta para subir' %>
+  </a>
+</section>
+
+<%
+  function filterLink(overrides = {}) {
+    const params = new URLSearchParams();
+    const merged = {
+      q: filters.q,
+      role: filters.role,
+      element: filters.element,
+      creador: filters.creator,
+      ...overrides
+    };
+    Object.entries(merged).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    const query = params.toString();
+    return '/personajes' + (query ? '?' + query : '');
+  }
+%>
+
+<div class="role-filter">
+  <a href="<%= filterLink({ role: '' }) %>" class="category-chip <%= !filters.role ? 'active' : '' %>">
+    Todos <span><%= total %></span>
+  </a>
+  <% ROLES.forEach((role) => { %>
+    <a href="<%= filterLink({ role: role.value }) %>" class="category-chip role-<%= role.value %> <%= filters.role === role.value ? 'active' : '' %>">
+      <%= role.label %> <span><%= counts[role.value] || 0 %></span>
+    </a>
+  <% }) %>
+</div>
+
+<form class="filters panel" method="GET" action="/personajes">
+  <div class="filter-search">
+    <label for="filter-q" class="sr-only">Buscar personajes</label>
+    <input id="filter-q" type="search" name="q" value="<%= filters.q %>" maxlength="60" placeholder="Buscar por nombre, descripción o creador…">
+  </div>
+
+  <label>
+    <span class="sr-only">Categoría</span>
+    <select name="role">
+      <option value="">Todas las categorías</option>
+      <% ROLES.forEach((role) => { %>
+        <option value="<%= role.value %>" <%= filters.role === role.value ? 'selected' : '' %>><%= role.label %></option>
+      <% }) %>
+    </select>
+  </label>
+
+  <label>
+    <span class="sr-only">Elemento</span>
+    <select name="element">
+      <option value="">Todos los elementos</option>
+      <% ELEMENTS.forEach((element) => { %>
+        <option value="<%= element.name %>" <%= filters.element.toLowerCase() === element.name.toLowerCase() ? 'selected' : '' %>><%= element.emoji %> <%= element.name %></option>
+      <% }) %>
+    </select>
+  </label>
+
+  <label class="filter-creator">
+    <span class="sr-only">Creador o usuario</span>
+    <input
+      type="search"
+      name="creador"
+      value="<%= filters.creator %>"
+      list="creatorOptions"
+      maxlength="60"
+      placeholder="Creador / usuario…"
+      autocomplete="off"
+    >
+  </label>
+
+  <button type="submit" class="btn btn-secondary">Filtrar</button>
+
+  <% if (filters.q || filters.role || filters.element || filters.creator) { %>
+    <a href="/personajes" class="btn btn-ghost btn-sm">Limpiar filtros</a>
+  <% } %>
+</form>
+
+<datalist id="creatorOptions">
+  <% creators.forEach((creator) => { %>
+    <option value="<%= creator %>"></option>
+  <% }) %>
+</datalist>
+
+<div class="results-line">
+  <p class="muted">
+    <strong><%= characters.length %></strong>
+    <%= characters.length === 1 ? 'personaje encontrado' : 'personajes encontrados' %>
+    <% if (filters.creator) { %>de <strong>@<%= filters.creator %></strong><% } %>
+    <% if (filters.role) { %>· categoría <strong><%= roleInfo(filters.role).label %></strong><% } %>
+    <% if (filters.element) { %>· elemento <strong><%= elementInfo(filters.element).name %></strong><% } %>
+  </p>
+</div>
+
+<% if (characters.length) { %>
+  <div class="character-grid">
+    <% characters.forEach((character) => { %>
+      <%- include('../partials/character-card', { character }) %>
+    <% }) %>
+  </div>
+<% } else { %>
+  <div class="empty-state">
+    <span class="empty-icon">🔍</span>
+    <h3>No encontramos personajes</h3>
+    <p>Prueba con otros filtros o sé la primera persona en sumar una ficha con esas características.</p>
+    <div class="empty-actions">
+      <a class="btn btn-ghost" href="/personajes">Ver todos</a>
+      <a class="btn btn-primary" href="<%= user ? '/personajes/nuevo' : '/auth/register' %>">
+        <%= user ? 'Subir personaje' : 'Crear cuenta' %>
+      </a>
+    </div>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>

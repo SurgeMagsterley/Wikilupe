@@ -1,0 +1,155 @@
+<%- include('../partials/head') %>
+
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">Acceso exclusivo</span>
+    <h1>Panel de administración</h1>
+    <p class="lead compact">
+      Desde aquí se administran las cuentas de WikiLupe. Puedes cambiar manualmente
+      la contraseña de cualquier usuario, revisar sus personajes o eliminar cuentas.
+    </p>
+  </div>
+  <span class="badge badge-admin badge-lg">Superadmin</span>
+</section>
+
+<div class="stat-grid">
+  <div class="mini-stat"><strong><%= stats.users %></strong><span>Usuarios</span></div>
+  <div class="mini-stat"><strong><%= stats.characters %></strong><span>Personajes</span></div>
+  <div class="mini-stat"><strong><%= stats.images %></strong><span>Fotos</span></div>
+  <div class="mini-stat"><strong><%= stats.relations %></strong><span>Relaciones</span></div>
+</div>
+
+<section class="panel">
+  <div class="section-heading compact-heading">
+    <div>
+      <h2>Usuarios registrados</h2>
+      <p class="muted small">Cambia una contraseña olvidada escribiendo una nueva y presionando “Cambiar”.</p>
+    </div>
+    <span class="badge"><%= users.length %></span>
+  </div>
+
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Usuario</th>
+          <th>Personajes</th>
+          <th>Tipo</th>
+          <th>Registro</th>
+          <th>Nueva contraseña</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% users.forEach((account) => { %>
+          <tr id="usuario-<%= account.id %>">
+            <td>
+              <div class="user-cell">
+                <span class="mini-avatar">
+                  <% if (account.avatar) { %>
+                    <img src="/uploads/avatars/<%= account.avatar %>" alt="" loading="lazy">
+                  <% } else { %>
+                    <%= initials(account.username) %>
+                  <% } %>
+                </span>
+                <span>
+                  <a href="/usuarios/<%= encodeURIComponent(account.username) %>">@<%= account.username %></a>
+                  <% if (account.id === user.id) { %><small class="tiny-muted">(tú)</small><% } %>
+                </span>
+              </div>
+            </td>
+            <td><%= account.character_count %></td>
+            <td>
+              <% if (account.is_admin) { %>
+                <span class="badge badge-admin">Superadmin</span>
+              <% } else { %>
+                <span class="badge">Usuario</span>
+              <% } %>
+            </td>
+            <td><%= formatDate(account.created_at) %></td>
+            <td>
+              <% if (account.id === user.id) { %>
+                <span class="tiny-muted">Usa “Mi perfil”</span>
+              <% } else { %>
+                <form action="/admin/usuarios/<%= account.id %>/password" method="POST" class="inline-form">
+                  <label class="sr-only" for="password-<%= account.id %>">Nueva contraseña para <%= account.username %></label>
+                  <input id="password-<%= account.id %>" type="password" name="new_password" minlength="6" maxlength="72" placeholder="Nueva contraseña" required>
+                  <button type="submit" class="btn btn-secondary btn-sm">Cambiar</button>
+                </form>
+              <% } %>
+            </td>
+            <td>
+              <% if (account.id !== user.id) { %>
+                <form
+                  action="/admin/usuarios/<%= account.id %>/eliminar"
+                  method="POST"
+                  data-confirm="¿Eliminar la cuenta de <%= account.username %> y todos sus personajes? Esta acción no se puede deshacer."
+                >
+                  <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="section-heading compact-heading">
+    <div>
+      <h2>Últimos personajes</h2>
+      <p class="muted small">Acciones rápidas sobre las fichas más recientes.</p>
+    </div>
+    <a href="/personajes" class="link-arrow">Ver todos &rarr;</a>
+  </div>
+
+  <% if (latestCharacters.length) { %>
+    <ul class="admin-character-list">
+      <% latestCharacters.forEach((character) => { %>
+        <li>
+          <div class="user-cell">
+            <span class="mini-avatar">
+              <% if (character.cover) { %>
+                <img src="/uploads/characters/<%= character.cover %>" alt="" loading="lazy">
+              <% } else { %>
+                <%= initials(character.name) %>
+              <% } %>
+            </span>
+            <span>
+              <a href="/personajes/<%= character.id %>"><%= character.name %></a>
+              <small class="tiny-muted">@<%= character.username %> · <%= roleInfo(character.role).label %></small>
+            </span>
+          </div>
+
+          <div class="admin-character-actions">
+            <a class="btn btn-ghost btn-sm" href="/personajes/<%= character.id %>">Ver</a>
+            <form
+              action="/personajes/<%= character.id %>/eliminar"
+              method="POST"
+              data-confirm="¿Eliminar el personaje <%= character.name %>? Esta acción no se puede deshacer."
+            >
+              <input type="hidden" name="redirect" value="admin">
+              <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+            </form>
+          </div>
+        </li>
+      <% }) %>
+    </ul>
+  <% } else { %>
+    <p class="muted">Todavía no hay personajes en la wiki.</p>
+  <% } %>
+</section>
+
+<section class="panel admin-note-panel">
+  <h2>Cómo restablecer una contraseña</h2>
+  <ol class="ordered-list">
+    <li>Busca a la persona en la tabla de usuarios.</li>
+    <li>Escribe una contraseña nueva de entre 6 y 72 caracteres.</li>
+    <li>Presiona “Cambiar”. La persona puede entrar de inmediato con esa contraseña y, si quiere, cambiarla desde su perfil.</li>
+  </ol>
+  <p class="tiny-muted">Las contraseñas se guardan hasheadas con bcrypt; nadie puede leerlas desde la base de datos.</p>
+</section>
+
+<%- include('../partials/footer') %>
