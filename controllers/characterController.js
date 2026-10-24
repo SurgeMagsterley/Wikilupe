@@ -1,3 +1,4 @@
+const db = require('../config/database');
 const Character = require('../models/Character');
 const CharacterImage = require('../models/CharacterImage');
 const Fact = require('../models/Fact');
@@ -182,6 +183,27 @@ async function saveNewImages(characterId, files, nicknames, startPosition) {
   }
 }
 
+/**
+ * Sube las fotos a Supabase Storage y devuelve las que se subieron bien.
+ * No toca la base de datos (eso se hace después, dentro de una transacción).
+ */
+async function uploadPhotos(files, nicknames) {
+  const uploaded = [];
+  if (!files || files.length === 0) return uploaded;
+
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    try {
+      const result = await uploadToSupabase(file.buffer, file.mimetype, file.originalname, 'characters');
+      file.supabasePath = result.filename;
+      uploaded.push({ filename: result.filename, nickname: clean(nicknames[index], 60) });
+    } catch (error) {
+      console.error('Error subiendo imagen a Supabase:', error.message);
+    }
+  }
+  return uploaded;
+}
+
 function renderCharacterForm(res, options) {
   return res.status(options.status || 200).render('characters/form', {
     title: options.title,
@@ -337,9 +359,18 @@ async function create(req, res, next) {
       }
     }
 
-    const characterId = await Character.create(req.user.id, values);
-    await saveNewImages(characterId, photoFiles, imageNicknames(req.body, 'photo_nicknames'), 0);
-    await Fact.replaceAll(characterId, facts);
+    // 1) Subir imágenes (servicio externo, fuera de la transacción).
+    const uploadedPhotos = await uploadPhotos(photoFiles, imageNicknames(req.body, 'photo_nicknames'));
+
+    // 2) Guardar personaje, imágenes y datos curiosos todo junto: o se guarda todo o nada.
+    const characterId = await db.transaction(async (client) => {
+      const newId = await Character.create(req.user.id, values, client);
+      for (let i = 0; i < uploadedPhotos.length; i += 1) {
+        await CharacterImage.add(newId, uploadedPhotos[i].filename, uploadedPhotos[i].nickname, i, client);
+      }
+      await Fact.replaceAll(newId, facts, client);
+      return newId;
+    });
 
     setFlash(req, 'success', '¡Personaje creado! Ya puedes agregar sus relaciones desde la ficha.');
     return res.redirect(`/personajes/${characterId}`);

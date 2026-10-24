@@ -129,7 +129,8 @@ async function allForSelect(excludeId) {
   return result.rows;
 }
 
-async function create(userId, data) {
+async function create(userId, data, client) {
+  const executor = client || db;
   const detailKeys = Object.keys(DETAIL_FIELDS);
   const columns = [
     'user_id', 'name', 'description', 'element', 'sexuality', 'gender', 'role',
@@ -155,7 +156,7 @@ async function create(userId, data) {
   ];
 
   const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
-  const result = await db.query(`
+  const result = await executor.query(`
     INSERT INTO characters (${columns.join(', ')})
     VALUES (${placeholders})
     RETURNING id

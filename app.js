@@ -108,7 +108,14 @@ app.use((req, res) => {
 });
 
 app.use((error, req, res, next) => {
-  console.error(error);
+  // Registro útil para Render Logs (sin cuerpo de la petición, cookies ni credenciales).
+  console.error(`[error] ${req.method} ${req.originalUrl} usuario=${req.user ? req.user.id : 'anónimo'}`
+    + ` | ${error.name}: ${error.message}`
+    + (error.code ? ` | code=${error.code}` : '')
+    + (error.column ? ` | column=${error.column}` : '')
+    + (error.constraint ? ` | constraint=${error.constraint}` : '')
+    + (error.detail ? ` | detail=${error.detail}` : ''));
+  if (error.stack) console.error(error.stack);
 
   if (res.headersSent) {
     return next(error);

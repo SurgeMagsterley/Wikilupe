@@ -9,10 +9,11 @@ async function listByCharacter(characterId) {
   return result.rows;
 }
 
-async function replaceAll(characterId, facts) {
-  await db.query('DELETE FROM character_facts WHERE character_id = $1', [characterId]);
+async function replaceAll(characterId, facts, client) {
+  const executor = client || db;
+  await executor.query('DELETE FROM character_facts WHERE character_id = $1', [characterId]);
   for (let i = 0; i < facts.length; i += 1) {
-    await db.query(
+    await executor.query(
       'INSERT INTO character_facts (character_id, content, position) VALUES ($1, $2, $3)',
       [characterId, facts[i], i]
     );

@@ -22,8 +22,9 @@ async function findByIdForCharacter(id, characterId) {
   return result.rows[0] || null;
 }
 
-async function add(characterId, filename, nickname, position = 0) {
-  const result = await db.query(`
+async function add(characterId, filename, nickname, position = 0, client) {
+  const executor = client || db;
+  const result = await executor.query(`
     INSERT INTO character_images (character_id, filename, nickname, position)
     VALUES ($1, $2, $3, $4)
     RETURNING id

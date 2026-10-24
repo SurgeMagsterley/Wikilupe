@@ -9,28 +9,33 @@ function setFlash(req, type, message) {
 /**
  * Carga el usuario de la sesión y expone helpers de vista.
  */
-function loadUser(req, res, next) {
+async function loadUser(req, res, next) {
   res.locals.user = null;
   res.locals.flash = null;
   res.locals.currentPath = req.path;
 
-  if (req.session && req.session.userId) {
-    const user = User.findById(req.session.userId);
+  try {
+    if (req.session && req.session.userId) {
+      // User.findById es asíncrona (PostgreSQL): hay que esperar el resultado.
+      const user = await User.findById(req.session.userId);
 
-    if (user) {
-      req.user = user;
-      res.locals.user = user;
-    } else {
-      delete req.session.userId;
+      if (user) {
+        req.user = user;
+        res.locals.user = user;
+      } else {
+        delete req.session.userId;
+      }
     }
+
+    if (req.session && req.session.flash) {
+      res.locals.flash = req.session.flash;
+      delete req.session.flash;
+    }
+  } catch (error) {
+    return next(error);
   }
 
-  if (req.session && req.session.flash) {
-    res.locals.flash = req.session.flash;
-    delete req.session.flash;
-  }
-
-  next();
+  return next();
 }
 
 function requireAuth(req, res, next) {
