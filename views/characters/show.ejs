@@ -15,7 +15,7 @@
 >
   <div class="scene-backdrop" aria-hidden="true">
     <% if (typeof heroImage !== 'undefined' && heroImage) { %>
-      <div class="scene-image" style="background-image: url('/uploads/characters/<%= heroImage %>')"></div>
+      <div class="scene-image" style="background-image: url('<%= getImageUrl(heroImage) %>')"></div>
     <% } %>
     <span class="scene-aurora scene-aurora-one"></span>
     <span class="scene-aurora scene-aurora-two"></span>
@@ -28,7 +28,7 @@
         <div class="gallery-main" id="galleryMain">
           <img
             id="galleryImage"
-            src="/uploads/characters/<%= images[0].filename %>"
+            src="<%= getImageUrl(images[0].filename) %>"
             alt="Foto de <%= character.name %><%= images[0].nickname ? ' — ' + images[0].nickname : '' %>"
           >
           <span class="photo-caption" id="galleryCaption">
@@ -42,11 +42,11 @@
               <button
                 type="button"
                 class="gallery-thumb <%= index === 0 ? 'active' : '' %>"
-                data-src="/uploads/characters/<%= image.filename %>"
+                data-src="<%= getImageUrl(image.filename) %>"
                 data-caption="<%= image.nickname || 'Sin apodo' %>"
                 aria-label="Ver foto <%= index + 1 %><%= image.nickname ? ': ' + image.nickname : '' %>"
               >
-                <img src="/uploads/characters/<%= image.filename %>" alt="" loading="lazy">
+                <img src="<%= getImageUrl(image.filename) %>" alt="" loading="lazy">
               </button>
             <% }) %>
           </div>
@@ -251,7 +251,7 @@
                       <a class="relation-person" href="/personajes/<%= relation.related_character_id %>">
                         <span class="mini-avatar">
                           <% if (relation.related_cover) { %>
-                            <img src="/uploads/characters/<%= relation.related_cover %>" alt="" loading="lazy">
+                            <img src="<%= getImageUrl(relation.related_cover) %>" alt="" loading="lazy">
                           <% } else { %>
                             <%= initials(relation.related_name) %>
                           <% } %>

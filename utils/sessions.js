@@ -1,26 +1,17 @@
 const db = require('../config/database');
 
-/**
- * Elimina las sesiones guardadas de un usuario. Si se pasa exceptSid,
- * conserva esa sesión (por ejemplo, la del usuario que cambia su propia clave).
- */
-function destroyUserSessions(userId, exceptSid = null) {
-  const rows = db.prepare('SELECT sid, sess FROM sessions').all();
-  const remove = db.prepare('DELETE FROM sessions WHERE sid = ?');
+function destroyUserSessions(userId, currentSessionId) {
+  if (!userId) return;
+  const query = currentSessionId
+    ? "DELETE FROM session WHERE sess::jsonb->>'userId' = $1 AND sid <> $2"
+    : "DELETE FROM session WHERE sess::jsonb->>'userId' = $1";
 
-  rows.forEach((row) => {
-    if (exceptSid && row.sid === exceptSid) return;
-
-    try {
-      const sessionData = JSON.parse(row.sess);
-      if (sessionData.userId === userId) {
-        remove.run(row.sid);
-      }
-    } catch (error) {
-      // Si la sesión está corrupta, se elimina igual.
-      remove.run(row.sid);
-    }
+  const params = currentSessionId ? [String(userId), currentSessionId] : [String(userId)];
+  db.query(query, params).catch((error) => {
+    console.error('No se pudieron cerrar las sesiones:', error.message);
   });
 }
 
-module.exports = { destroyUserSessions };
+module.exports = {
+  destroyUserSessions
+};

@@ -1,25 +1,22 @@
 const db = require('../config/database');
 
-function listByCharacter(characterId) {
-  return db.prepare(`
+async function listByCharacter(characterId) {
+  const result = await db.query(`
     SELECT * FROM character_facts
-    WHERE character_id = ?
+    WHERE character_id = $1
     ORDER BY position ASC, id ASC
-  `).all(characterId);
+  `, [characterId]);
+  return result.rows;
 }
 
-function replaceAll(characterId, facts) {
-  const removeAll = db.prepare('DELETE FROM character_facts WHERE character_id = ?');
-  const insert = db.prepare(
-    'INSERT INTO character_facts (character_id, content, position) VALUES (?, ?, ?)'
-  );
-
-  const transaction = db.transaction((items) => {
-    removeAll.run(characterId);
-    items.forEach((fact, index) => insert.run(characterId, fact, index));
-  });
-
-  transaction(facts);
+async function replaceAll(characterId, facts) {
+  await db.query('DELETE FROM character_facts WHERE character_id = $1', [characterId]);
+  for (let i = 0; i < facts.length; i += 1) {
+    await db.query(
+      'INSERT INTO character_facts (character_id, content, position) VALUES ($1, $2, $3)',
+      [characterId, facts[i], i]
+    );
+  }
 }
 
 module.exports = {

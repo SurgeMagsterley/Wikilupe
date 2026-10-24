@@ -47,7 +47,7 @@
               <div class="user-cell">
                 <span class="mini-avatar">
                   <% if (account.avatar) { %>
-                    <img src="/uploads/avatars/<%= account.avatar %>" alt="" loading="lazy">
+                    <img src="<%= getImageUrl(account.avatar) %>" alt="" loading="lazy">
                   <% } else { %>
                     <%= initials(account.username) %>
                   <% } %>
@@ -112,7 +112,7 @@
           <div class="user-cell">
             <span class="mini-avatar">
               <% if (character.cover) { %>
-                <img src="/uploads/characters/<%= character.cover %>" alt="" loading="lazy">
+                <img src="<%= getImageUrl(character.cover) %>" alt="" loading="lazy">
               <% } else { %>
                 <%= initials(character.name) %>
               <% } %>

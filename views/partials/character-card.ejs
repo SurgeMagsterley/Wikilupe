@@ -10,12 +10,14 @@
     ? (character.description.length > 135 ? character.description.slice(0, 135).trim() + '…' : character.description)
     : 'Sin descripción por ahora.';
   const cardBgImage = character.bg_image || '';
+  const coverUrl = cover ? getImageUrl(cover) : '';
+  const bgUrl = cardBgImage ? getImageUrl(cardBgImage) : '';
 %>
 <article class="character-card<%= cardBgImage ? ' has-card-bg' : '' %>">
-  <a class="card-cover" href="/personajes/<%= character.id %>" aria-label="Ver la ficha de <%= character.name %>" <%= cardBgImage ? 'style="background-image: url(/uploads/characters/' + cardBgImage + ')"' : '' %>>
-    <% if (cover) { %>
-      <img src="/uploads/characters/<%= cover %>" alt="Foto de <%= character.name %>" loading="lazy">
-    <% } else if (cardBgImage) { %>
+  <a class="card-cover" href="/personajes/<%= character.id %>" aria-label="Ver la ficha de <%= character.name %>" <%= bgUrl ? 'style="background-image: url(' + bgUrl + ')"' : '' %>>
+    <% if (coverUrl) { %>
+      <img src="<%= coverUrl %>" alt="Foto de <%= character.name %>" loading="lazy">
+    <% } else if (bgUrl) { %>
       <span class="cover-placeholder cover-placeholder-bg"><%= initials(character.name) %></span>
     <% } else { %>
       <span class="cover-placeholder"><%= initials(character.name) %></span>

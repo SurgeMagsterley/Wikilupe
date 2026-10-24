@@ -4,7 +4,7 @@
   <div class="profile-main">
     <div class="profile-avatar">
       <% if (user.avatar) { %>
-        <img src="/uploads/avatars/<%= user.avatar %>" alt="Foto de perfil de <%= user.username %>">
+        <img src="<%= getImageUrl(user.avatar) %>" alt="Foto de perfil de <%= user.username %>">
       <% } else { %>
         <span><%= initials(user.username) %></span>
       <% } %>

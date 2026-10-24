@@ -34,7 +34,7 @@ async function login(req, res, next) {
       });
     }
 
-    const user = User.findByUsername(username);
+    const user = await User.findByUsername(username);
     const matches = user ? await bcrypt.compare(password, user.password_hash) : false;
 
     if (!user || !matches) {
@@ -92,12 +92,13 @@ async function register(req, res, next) {
       return renderError('Las contraseñas no coinciden.');
     }
 
-    if (User.findByUsername(username)) {
+    const existing = await User.findByUsername(username);
+    if (existing) {
       return renderError('Ese nombre de usuario ya está en uso. Prueba con otro.', 409);
     }
 
     const hash = await bcrypt.hash(password, 12);
-    const user = User.create(username, hash);
+    const user = await User.create(username, hash);
 
     return beginSession(req, user, (error) => {
       if (error) return next(error);
@@ -107,7 +108,7 @@ async function register(req, res, next) {
     });
   } catch (error) {
     // Condición de carrera del UNIQUE de username.
-    if (error && String(error.code).includes('SQLITE_CONSTRAINT')) {
+    if (error && (String(error.code).includes('SQLITE_CONSTRAINT') || String(error.code) === '23505')) {
       return res.status(409).render('auth/register', {
         title: 'Crear cuenta',
         form: { username: clean(req.body.username, 24) },

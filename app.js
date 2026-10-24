@@ -5,9 +5,10 @@ const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
 
-const SQLiteStore = require('./config/sessionStore');
+const sessionStore = require('./config/sessionStore');
 const seedSuperadmin = require('./config/seed');
 const { loadUser, setFlash } = require('./middlewares/auth');
+const { getImageUrl } = require('./utils/urls');
 const {
   ROLES,
   ELEMENTS,
@@ -51,7 +52,7 @@ if (!process.env.SESSION_SECRET) {
 }
 
 app.use(session({
-  store: new SQLiteStore(),
+  store: sessionStore,
   name: 'wikilupe.sid',
   secret: sessionSecret,
   resave: false,
@@ -60,7 +61,7 @@ app.use(session({
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: SQLiteStore.FIFTEEN_DAYS
+    maxAge: sessionStore.FIFTEEN_DAYS || 15 * 24 * 60 * 60 * 1000
   }
 }));
 
@@ -86,6 +87,7 @@ app.use((req, res, next) => {
   res.locals.initials = initials;
   res.locals.formatDate = formatDate;
   res.locals.formatDateTime = formatDateTime;
+  res.locals.getImageUrl = getImageUrl;
   next();
 });
 
@@ -141,7 +143,7 @@ app.use((error, req, res, next) => {
 });
 
 const PORT = Number(process.env.PORT) || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`WikiLupe está corriendo en http://localhost:${PORT}`);
 });
 

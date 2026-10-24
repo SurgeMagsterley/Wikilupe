@@ -1,37 +1,47 @@
-const path = require('path');
-const fs = require('fs');
+const { supabase, STORAGE_BUCKET } = require('../config/supabase');
 
-function uploadPath(subdir, filename) {
-  return path.join(__dirname, '..', 'public', 'uploads', subdir, filename);
+async function removeFileFromSupabase(filepath) {
+  if (!filepath) return;
+  try {
+    await supabase.storage.from(STORAGE_BUCKET).remove([filepath]);
+  } catch (error) {
+    console.error(`No se pudo borrar ${filepath} de Supabase Storage:`, error.message);
+  }
 }
 
 function removeFile(subdir, filename) {
   if (!filename) return;
-
-  try {
-    fs.unlinkSync(uploadPath(subdir, filename));
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      console.error(`No se pudo borrar ${subdir}/${filename}:`, error.message);
-    }
+  if (filename.includes('/')) {
+    return removeFileFromSupabase(filename);
   }
+  return removeFileFromSupabase(`${subdir}/${filename}`);
 }
 
-/**
- * Si una petición multipart falla en la validación, borramos los archivos
- * temporales que Multer ya había guardado.
- */
 function cleanupUploads(files, subdir = 'characters') {
   if (!Array.isArray(files)) return;
-  files.forEach((file) => removeFile(subdir, file.filename));
+  files.forEach((file) => {
+    if (file.supabasePath) {
+      removeFileFromSupabase(file.supabasePath);
+    } else if (file.filename) {
+      removeFile(subdir, file.filename);
+    }
+  });
 }
 
 function removeCharacterFiles(filenames) {
-  (filenames || []).forEach((filename) => removeFile('characters', filename));
+  if (!Array.isArray(filenames)) return;
+  filenames.forEach((filename) => {
+    if (filename.includes('/')) {
+      removeFileFromSupabase(filename);
+    } else {
+      removeFileFromSupabase(`characters/${filename}`);
+    }
+  });
 }
 
 module.exports = {
   removeFile,
   cleanupUploads,
-  removeCharacterFiles
+  removeCharacterFiles,
+  removeFileFromSupabase
 };

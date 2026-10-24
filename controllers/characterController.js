@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { setFlash } = require('../middlewares/auth');
 const { cleanupUploads, removeFile, removeCharacterFiles } = require('../utils/files');
 const { clean, parseStats, parseFacts } = require('../utils/validation');
+const { uploadToSupabase } = require('../middlewares/upload');
 const {
   ROLE_NAMES,
   RELATION_NAMES,
@@ -162,15 +163,23 @@ function imageNicknames(body, field) {
   return raw ? [raw] : [];
 }
 
-function saveNewImages(characterId, files, nicknames, startPosition) {
-  (files || []).forEach((file, index) => {
-    CharacterImage.add(
-      characterId,
-      file.filename,
-      clean(nicknames[index], 60),
-      startPosition + index
-    );
-  });
+async function saveNewImages(characterId, files, nicknames, startPosition) {
+  if (!files || files.length === 0) return;
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    try {
+      const uploaded = await uploadToSupabase(file.buffer, file.mimetype, file.originalname, 'characters');
+      file.supabasePath = uploaded.filename;
+      await CharacterImage.add(
+        characterId,
+        uploaded.filename,
+        clean(nicknames[index], 60),
+        startPosition + index
+      );
+    } catch (error) {
+      console.error('Error subiendo imagen a Supabase:', error.message);
+    }
+  }
 }
 
 function renderCharacterForm(res, options) {
@@ -186,7 +195,7 @@ function renderCharacterForm(res, options) {
   });
 }
 
-function index(req, res) {
+async function index(req, res) {
   const creatorQuery = req.query.creador !== undefined ? req.query.creador : req.query.usuario;
   const filters = {
     q: clean(req.query.q, 60),
@@ -195,10 +204,15 @@ function index(req, res) {
     creator: clean(creatorQuery, 60)
   };
 
-  const characters = Character.list(filters);
-  const counts = {};
+  const [characters, countsRows, creators, total] = await Promise.all([
+    Character.list(filters),
+    Character.countByRole(),
+    User.listUsernames(),
+    Character.count()
+  ]);
 
-  Character.countByRole().forEach((row) => {
+  const counts = {};
+  countsRows.forEach((row) => {
     counts[row.role] = row.total;
   });
 
@@ -207,21 +221,23 @@ function index(req, res) {
     characters,
     filters,
     counts,
-    creators: User.listUsernames(),
-    total: Character.count()
+    creators,
+    total
   });
 }
 
-function show(req, res) {
-  const character = Character.findById(req.params.id);
+async function show(req, res) {
+  const character = await Character.findById(req.params.id);
 
   if (!character) {
     return res.status(404).render('errors/404', { title: 'Personaje no encontrado' });
   }
 
-  const images = CharacterImage.listByCharacter(character.id);
-  const facts = Fact.listByCharacter(character.id);
-  const relations = Relation.listByCharacter(character.id);
+  const [images, facts, relations] = await Promise.all([
+    CharacterImage.listByCharacter(character.id),
+    Fact.listByCharacter(character.id),
+    Relation.listByCharacter(character.id)
+  ]);
   const editable = canManage(req.user, character);
 
   const stats = [
@@ -261,6 +277,8 @@ function show(req, res) {
     { label: 'Estilo de combate', value: character.combat_style, icon: '🥋' }
   ].filter((item) => item.value);
 
+  const candidates = editable ? await Character.allForSelect(character.id) : [];
+
   return res.render('characters/show', {
     title: character.name,
     character,
@@ -277,7 +295,7 @@ function show(req, res) {
     titleList,
     infoItems,
     combatItems,
-    candidates: editable ? Character.allForSelect(character.id) : []
+    candidates
   });
 }
 
@@ -289,7 +307,7 @@ function showCreate(req, res) {
   });
 }
 
-function create(req, res, next) {
+async function create(req, res, next) {
   const files = req.files || {};
   const photoFiles = files.photos || [];
   const bgFile = files.bg_file && files.bg_file[0];
@@ -299,7 +317,7 @@ function create(req, res, next) {
 
     if (errors.length) {
       cleanupUploads(photoFiles);
-      if (bgFile) removeFile('characters', bgFile.filename);
+      if (bgFile && bgFile.supabasePath) removeFile('characters', bgFile.supabasePath);
       return renderCharacterForm(res, {
         status: 400,
         title: 'Subir personaje',
@@ -310,24 +328,30 @@ function create(req, res, next) {
     }
 
     if (bgFile) {
-      values.bgImage = bgFile.filename;
+      try {
+        const uploadedBg = await uploadToSupabase(bgFile.buffer, bgFile.mimetype, bgFile.originalname, 'characters');
+        bgFile.supabasePath = uploadedBg.filename;
+        values.bgImage = uploadedBg.filename;
+      } catch (error) {
+        console.error('Error subiendo fondo a Supabase:', error.message);
+      }
     }
 
-    const characterId = Character.create(req.user.id, values);
-    saveNewImages(characterId, photoFiles, imageNicknames(req.body, 'photo_nicknames'), 0);
-    Fact.replaceAll(characterId, facts);
+    const characterId = await Character.create(req.user.id, values);
+    await saveNewImages(characterId, photoFiles, imageNicknames(req.body, 'photo_nicknames'), 0);
+    await Fact.replaceAll(characterId, facts);
 
     setFlash(req, 'success', '¡Personaje creado! Ya puedes agregar sus relaciones desde la ficha.');
     return res.redirect(`/personajes/${characterId}`);
   } catch (error) {
     cleanupUploads(photoFiles);
-    if (bgFile) removeFile('characters', bgFile.filename);
+    if (bgFile && bgFile.supabasePath) removeFile('characters', bgFile.supabasePath);
     return next(error);
   }
 }
 
-function showEdit(req, res) {
-  const character = Character.findById(req.params.id);
+async function showEdit(req, res) {
+  const character = await Character.findById(req.params.id);
 
   if (!character) {
     return res.status(404).render('errors/404', { title: 'Personaje no encontrado' });
@@ -337,8 +361,10 @@ function showEdit(req, res) {
     return res.status(403).render('errors/403', { title: 'Acceso denegado' });
   }
 
-  const images = CharacterImage.listByCharacter(character.id);
-  const facts = Fact.listByCharacter(character.id);
+  const [images, facts] = await Promise.all([
+    CharacterImage.listByCharacter(character.id),
+    Fact.listByCharacter(character.id)
+  ]);
 
   return renderCharacterForm(res, {
     title: `Editar ${character.name}`,
@@ -350,32 +376,32 @@ function showEdit(req, res) {
   });
 }
 
-function update(req, res, next) {
+async function update(req, res, next) {
   const files = req.files || {};
   const photoFiles = files.photos || [];
   const bgFile = files.bg_file && files.bg_file[0];
 
   try {
-    const character = Character.findById(req.params.id);
+    const character = await Character.findById(req.params.id);
 
     if (!character) {
       cleanupUploads(photoFiles);
-      if (bgFile) removeFile('characters', bgFile.filename);
+      if (bgFile && bgFile.supabasePath) removeFile('characters', bgFile.supabasePath);
       return res.status(404).render('errors/404', { title: 'Personaje no encontrado' });
     }
 
     if (!canManage(req.user, character)) {
       cleanupUploads(photoFiles);
-      if (bgFile) removeFile('characters', bgFile.filename);
+      if (bgFile && bgFile.supabasePath) removeFile('characters', bgFile.supabasePath);
       return res.status(403).render('errors/403', { title: 'Acceso denegado' });
     }
 
     const { values, errors, facts } = collectValues(req.body);
-    const images = CharacterImage.listByCharacter(character.id);
+    const images = await CharacterImage.listByCharacter(character.id);
 
     if (errors.length) {
       cleanupUploads(photoFiles);
-      if (bgFile) removeFile('characters', bgFile.filename);
+      if (bgFile && bgFile.supabasePath) removeFile('characters', bgFile.supabasePath);
       return renderCharacterForm(res, {
         status: 400,
         title: `Editar ${character.name}`,
@@ -390,7 +416,14 @@ function update(req, res, next) {
 
     if (bgFile) {
       if (character.bg_image) removeFile('characters', character.bg_image);
-      values.bgImage = bgFile.filename;
+      try {
+        const uploadedBg = await uploadToSupabase(bgFile.buffer, bgFile.mimetype, bgFile.originalname, 'characters');
+        bgFile.supabasePath = uploadedBg.filename;
+        values.bgImage = uploadedBg.filename;
+      } catch (error) {
+        console.error('Error subiendo fondo a Supabase:', error.message);
+        values.bgImage = character.bg_image || '';
+      }
     } else if (String(req.body.remove_bg_image || '') === '1') {
       if (character.bg_image) removeFile('characters', character.bg_image);
       values.bgImage = '';
@@ -398,36 +431,37 @@ function update(req, res, next) {
       values.bgImage = character.bg_image || '';
     }
 
-    Character.update(character.id, values);
+    await Character.update(character.id, values);
 
-    images.forEach((image) => {
+    for (let i = 0; i < images.length; i += 1) {
+      const image = images[i];
       if (String(req.body[`remove_image_${image.id}`]) === '1') {
-        CharacterImage.remove(image.id);
+        await CharacterImage.remove(image.id);
         removeFile('characters', image.filename);
-        return;
+        continue;
       }
 
       const nicknameField = req.body[`nickname_${image.id}`];
       if (nicknameField !== undefined) {
-        CharacterImage.updateNickname(image.id, clean(nicknameField, 60));
+        await CharacterImage.updateNickname(image.id, clean(nicknameField, 60));
       }
-    });
+    }
 
-    const remainingImages = CharacterImage.listByCharacter(character.id);
-    saveNewImages(character.id, photoFiles, imageNicknames(req.body, 'new_nicknames'), remainingImages.length);
-    Fact.replaceAll(character.id, facts);
+    const remainingImages = await CharacterImage.listByCharacter(character.id);
+    await saveNewImages(character.id, photoFiles, imageNicknames(req.body, 'new_nicknames'), remainingImages.length);
+    await Fact.replaceAll(character.id, facts);
 
     setFlash(req, 'success', 'Cambios guardados correctamente.');
     return res.redirect(`/personajes/${character.id}`);
   } catch (error) {
     cleanupUploads(photoFiles);
-    if (bgFile) removeFile('characters', bgFile.filename);
+    if (bgFile && bgFile.supabasePath) removeFile('characters', bgFile.supabasePath);
     return next(error);
   }
 }
 
-function destroy(req, res) {
-  const character = Character.findById(req.params.id);
+async function destroy(req, res) {
+  const character = await Character.findById(req.params.id);
 
   if (!character) {
     return res.status(404).render('errors/404', { title: 'Personaje no encontrado' });
@@ -437,8 +471,8 @@ function destroy(req, res) {
     return res.status(403).render('errors/403', { title: 'Acceso denegado' });
   }
 
-  const filenames = CharacterImage.listFilenames(character.id);
-  Character.remove(character.id);
+  const filenames = await CharacterImage.listFilenames(character.id);
+  await Character.remove(character.id);
   removeCharacterFiles(filenames);
   if (character.bg_image) removeFile('characters', character.bg_image);
 
@@ -453,8 +487,8 @@ function destroy(req, res) {
   return res.redirect(redirectTo);
 }
 
-function addRelation(req, res) {
-  const character = Character.findById(req.params.id);
+async function addRelation(req, res) {
+  const character = await Character.findById(req.params.id);
 
   if (!character) {
     return res.status(404).render('errors/404', { title: 'Personaje no encontrado' });
@@ -481,7 +515,7 @@ function addRelation(req, res) {
       return res.redirect(`/personajes/${character.id}#relaciones`);
     }
 
-    relatedCharacter = Character.findById(relatedId);
+    relatedCharacter = await Character.findById(relatedId);
     if (!relatedCharacter) {
       setFlash(req, 'error', 'Ese personaje ya no existe. Recarga la página e intenta de nuevo.');
       return res.redirect(`/personajes/${character.id}#relaciones`);
@@ -493,7 +527,7 @@ function addRelation(req, res) {
     return res.redirect(`/personajes/${character.id}#relaciones`);
   }
 
-  const existing = Relation.listByCharacter(character.id);
+  const existing = await Relation.listByCharacter(character.id);
   const duplicated = existing.some((relation) => {
     if (relation.relation_type !== relationType) return false;
     if (relatedCharacter) return relation.related_character_id === relatedCharacter.id;
@@ -506,13 +540,13 @@ function addRelation(req, res) {
     return res.redirect(`/personajes/${character.id}#relaciones`);
   }
 
-  Relation.add(character.id, relationType, relatedCharacter ? relatedCharacter.id : null, externalName || null);
+  await Relation.add(character.id, relationType, relatedCharacter ? relatedCharacter.id : null, externalName || null);
   setFlash(req, 'success', 'Relación agregada al árbol.');
   return res.redirect(`/personajes/${character.id}#relaciones`);
 }
 
-function removeRelation(req, res) {
-  const character = Character.findById(req.params.id);
+async function removeRelation(req, res) {
+  const character = await Character.findById(req.params.id);
 
   if (!character) {
     return res.status(404).render('errors/404', { title: 'Personaje no encontrado' });
@@ -522,13 +556,13 @@ function removeRelation(req, res) {
     return res.status(403).render('errors/403', { title: 'Acceso denegado' });
   }
 
-  const relation = Relation.findById(req.params.relationId);
+  const relation = await Relation.findById(req.params.relationId);
   if (!relation || relation.character_id !== character.id) {
     setFlash(req, 'error', 'Esa relación no existe.');
     return res.redirect(`/personajes/${character.id}#relaciones`);
   }
 
-  Relation.remove(relation.id, character.id);
+  await Relation.remove(relation.id, character.id);
   setFlash(req, 'success', 'Relación eliminada.');
   return res.redirect(`/personajes/${character.id}#relaciones`);
 }

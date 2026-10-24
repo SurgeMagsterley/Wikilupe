@@ -247,7 +247,7 @@
         <% images.forEach((image) => { %>
           <div class="existing-image">
             <div class="existing-image-thumb">
-              <img src="/uploads/characters/<%= image.filename %>" alt="Foto de <%= values.name %>" loading="lazy">
+              <img src="<%= getImageUrl(image.filename) %>" alt="Foto de <%= values.name %>" loading="lazy">
             </div>
             <label>
               Apodo de esta foto
@@ -386,7 +386,7 @@
       <% if (mode === 'edit' && values.bgImage) { %>
         <div class="bg-current">
           <div class="bg-current-thumb">
-            <img src="/uploads/characters/<%= values.bgImage %>" alt="Fondo actual del personaje" loading="lazy">
+            <img src="<%= getImageUrl(values.bgImage) %>" alt="Fondo actual del personaje" loading="lazy">
           </div>
           <label class="checkbox">
             <input type="checkbox" name="remove_bg_image" value="1">

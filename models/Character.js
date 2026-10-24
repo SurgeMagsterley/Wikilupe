@@ -23,36 +23,41 @@ function detailValues(data) {
   return Object.keys(DETAIL_FIELDS).map((key) => data[key] || '');
 }
 
-function list({ q = '', role = '', element = '', creator = '' } = {}) {
+async function list({ q = '', role = '', element = '', creator = '' } = {}) {
   const conditions = [];
   const params = [];
+  let idx = 1;
 
   const search = String(q || '').trim();
   if (search) {
-    conditions.push('(c.name LIKE ? OR c.description LIKE ? OR u.username LIKE ?)');
+    conditions.push(`(c.name ILIKE $${idx} OR c.description ILIKE $${idx + 1} OR u.username ILIKE $${idx + 2})`);
     const like = `%${search}%`;
     params.push(like, like, like);
+    idx += 3;
   }
 
   if (role) {
-    conditions.push('c.role = ?');
+    conditions.push(`c.role = $${idx}`);
     params.push(role);
+    idx += 1;
   }
 
   if (element) {
-    conditions.push('LOWER(c.element) = LOWER(?)');
+    conditions.push(`LOWER(c.element) = LOWER($${idx})`);
     params.push(element);
+    idx += 1;
   }
 
   const creatorFilter = String(creator || '').trim();
   if (creatorFilter) {
-    conditions.push('u.username LIKE ?');
+    conditions.push(`u.username ILIKE $${idx}`);
     params.push(`%${creatorFilter}%`);
+    idx += 1;
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  return db.prepare(`
+  const result = await db.query(`
     SELECT c.*, u.username,
       (SELECT i.filename FROM character_images i
         WHERE i.character_id = c.id ORDER BY i.position ASC, i.id ASC LIMIT 1) AS cover
@@ -60,64 +65,71 @@ function list({ q = '', role = '', element = '', creator = '' } = {}) {
     JOIN users u ON u.id = c.user_id
     ${where}
     ORDER BY c.created_at DESC, c.id DESC
-  `).all(...params);
+  `, params);
+
+  return result.rows;
 }
 
-function findById(id) {
-  return db.prepare(`
+async function findById(id) {
+  const result = await db.query(`
     SELECT c.*, u.username, u.avatar AS owner_avatar
     FROM characters c
     JOIN users u ON u.id = c.user_id
-    WHERE c.id = ?
-  `).get(id);
+    WHERE c.id = $1
+  `, [id]);
+  return result.rows[0] || null;
 }
 
-function listByUser(userId) {
-  return db.prepare(`
+async function listByUser(userId) {
+  const result = await db.query(`
     SELECT c.*,
       (SELECT i.filename FROM character_images i
         WHERE i.character_id = c.id ORDER BY i.position ASC, i.id ASC LIMIT 1) AS cover,
       (SELECT COUNT(*) FROM character_images i WHERE i.character_id = c.id) AS image_count
     FROM characters c
-    WHERE c.user_id = ?
+    WHERE c.user_id = $1
     ORDER BY c.created_at DESC, c.id DESC
-  `).all(userId);
+  `, [userId]);
+  return result.rows;
 }
 
-function featuredByUser(userId, limit = 3) {
-  return db.prepare(`
+async function featuredByUser(userId, limit = 3) {
+  const result = await db.query(`
     SELECT c.*,
       (SELECT i.filename FROM character_images i
         WHERE i.character_id = c.id ORDER BY i.position ASC, i.id ASC LIMIT 1) AS cover
     FROM characters c
-    WHERE c.user_id = ?
+    WHERE c.user_id = $1
     ORDER BY c.updated_at DESC, c.created_at DESC, c.id DESC
-    LIMIT ?
-  `).all(userId, limit);
+    LIMIT $2
+  `, [userId, limit]);
+  return result.rows;
 }
 
-
-function count() {
-  return db.prepare('SELECT COUNT(*) AS total FROM characters').get().total;
+async function count() {
+  const result = await db.query('SELECT COUNT(*) AS total FROM characters');
+  return parseInt(result.rows[0].total, 10);
 }
 
-function countByRole() {
-  return db.prepare(`
+async function countByRole() {
+  const result = await db.query(`
     SELECT role, COUNT(*) AS total FROM characters GROUP BY role
-  `).all();
+  `);
+  return result.rows;
 }
 
-function allForSelect(excludeId) {
-  return db.prepare(`
+async function allForSelect(excludeId) {
+  const result = await db.query(`
     SELECT c.id, c.name, c.role, u.username
     FROM characters c
     JOIN users u ON u.id = c.user_id
-    WHERE c.id != ?
-    ORDER BY c.name COLLATE NOCASE
-  `).all(excludeId || 0);
+    WHERE c.id != $1
+    ORDER BY LOWER(c.name)
+  `, [excludeId || 0]);
+  return result.rows;
 }
 
-function create(userId, data) {
+async function create(userId, data) {
   const detailKeys = Object.keys(DETAIL_FIELDS);
   const columns = [
     'user_id', 'name', 'description', 'element', 'sexuality', 'gender', 'role',
@@ -142,32 +154,18 @@ function create(userId, data) {
     ...detailValues(data)
   ];
 
-  const info = db.prepare(`
+  const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+  const result = await db.query(`
     INSERT INTO characters (${columns.join(', ')})
-    VALUES (${columns.map(() => '?').join(', ')})
-  `).run(...values);
+    VALUES (${placeholders})
+    RETURNING id
+  `, values);
 
-  return info.lastInsertRowid;
+  return result.rows[0].id;
 }
 
-function update(id, data) {
+async function update(id, data) {
   const detailKeys = Object.keys(DETAIL_FIELDS);
-  const assignments = [
-    'name = ?',
-    'description = ?',
-    'element = ?',
-    'sexuality = ?',
-    'gender = ?',
-    'role = ?',
-    'stat_physical_attack = ?',
-    'stat_special_attack = ?',
-    'stat_physical_defense = ?',
-    'stat_special_defense = ?',
-    'stat_speed = ?',
-    ...detailKeys.map((key) => `${DETAIL_FIELDS[key]} = ?`),
-    "updated_at = datetime('now')"
-  ];
-
   const values = [
     data.name,
     data.description,
@@ -184,11 +182,26 @@ function update(id, data) {
     id
   ];
 
-  db.prepare(`UPDATE characters SET ${assignments.join(', ')} WHERE id = ?`).run(...values);
+  const assignments = [
+    'name = $1',
+    'description = $2',
+    'element = $3',
+    'sexuality = $4',
+    'gender = $5',
+    'role = $6',
+    'stat_physical_attack = $7',
+    'stat_special_attack = $8',
+    'stat_physical_defense = $9',
+    'stat_special_defense = $10',
+    'stat_speed = $11',
+    ...detailKeys.map((key, idx) => `${DETAIL_FIELDS[key]} = $${12 + idx}`)
+  ];
+
+  await db.query(`UPDATE characters SET ${assignments.join(', ')}, updated_at = NOW() WHERE id = $${values.length}`, values);
 }
 
-function remove(id) {
-  db.prepare('DELETE FROM characters WHERE id = ?').run(id);
+async function remove(id) {
+  await db.query('DELETE FROM characters WHERE id = $1', [id]);
 }
 
 module.exports = {

@@ -8,19 +8,25 @@ const { removeFile, removeCharacterFiles } = require('../utils/files');
 const { destroyUserSessions } = require('../utils/sessions');
 const { isValidPassword } = require('../utils/validation');
 
-function index(req, res) {
-  const users = User.listAll();
-  const characters = Character.list({});
+async function index(req, res) {
+  const [users, characters, userCount, charCount, imgCount, relCount] = await Promise.all([
+    User.listAll(),
+    Character.list({}),
+    User.count(),
+    Character.count(),
+    CharacterImage.count(),
+    Relation.count ? Relation.count() : Promise.resolve(0)
+  ]);
 
   return res.render('admin/index', {
     title: 'Panel de administración',
     users,
     latestCharacters: characters.slice(0, 8),
     stats: {
-      users: User.count(),
-      characters: Character.count(),
-      images: CharacterImage.count(),
-      relations: Relation.count()
+      users: userCount,
+      characters: charCount,
+      images: imgCount,
+      relations: relCount
     }
   });
 }
@@ -32,7 +38,7 @@ async function resetPassword(req, res, next) {
       return res.redirect('/admin');
     }
 
-    const target = User.findById(req.params.id);
+    const target = await User.findById(req.params.id);
 
     if (!target) {
       setFlash(req, 'error', 'Ese usuario no existe.');
@@ -47,7 +53,7 @@ async function resetPassword(req, res, next) {
     }
 
     const hash = await bcrypt.hash(newPassword, 12);
-    User.updatePassword(target.id, hash);
+    await User.updatePassword(target.id, hash);
     destroyUserSessions(target.id);
 
     setFlash(req, 'success', `Contraseña de "${target.username}" actualizada manualmente.`);
@@ -57,8 +63,8 @@ async function resetPassword(req, res, next) {
   }
 }
 
-function deleteUser(req, res) {
-  const target = User.findById(req.params.id);
+async function deleteUser(req, res) {
+  const target = await User.findById(req.params.id);
 
   if (!target) {
     setFlash(req, 'error', 'Ese usuario no existe.');
@@ -70,10 +76,14 @@ function deleteUser(req, res) {
     return res.redirect('/admin');
   }
 
-  const characters = Character.listByUser(target.id);
-  const filenames = characters.flatMap((character) => CharacterImage.listFilenames(character.id));
+  const characters = await Character.listByUser(target.id);
+  const filenames = [];
+  for (let i = 0; i < characters.length; i += 1) {
+    const imgs = await CharacterImage.listFilenames(characters[i].id);
+    filenames.push(...imgs);
+  }
 
-  User.remove(target.id);
+  await User.remove(target.id);
   destroyUserSessions(target.id);
   removeCharacterFiles(filenames);
   removeFile('avatars', target.avatar);

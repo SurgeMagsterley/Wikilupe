@@ -1,46 +1,52 @@
 const db = require('../config/database');
 
-function listByCharacter(characterId) {
-  return db.prepare(`
+async function listByCharacter(characterId) {
+  const result = await db.query(`
     SELECT * FROM character_images
-    WHERE character_id = ?
+    WHERE character_id = $1
     ORDER BY position ASC, id ASC
-  `).all(characterId);
+  `, [characterId]);
+  return result.rows;
 }
 
-function findById(id) {
-  return db.prepare('SELECT * FROM character_images WHERE id = ?').get(id);
+async function findById(id) {
+  const result = await db.query('SELECT * FROM character_images WHERE id = $1', [id]);
+  return result.rows[0] || null;
 }
 
-function findByIdForCharacter(id, characterId) {
-  return db.prepare(
-    'SELECT * FROM character_images WHERE id = ? AND character_id = ?'
-  ).get(id, characterId);
+async function findByIdForCharacter(id, characterId) {
+  const result = await db.query(
+    'SELECT * FROM character_images WHERE id = $1 AND character_id = $2',
+    [id, characterId]
+  );
+  return result.rows[0] || null;
 }
 
-function add(characterId, filename, nickname, position = 0) {
-  return db.prepare(`
+async function add(characterId, filename, nickname, position = 0) {
+  const result = await db.query(`
     INSERT INTO character_images (character_id, filename, nickname, position)
-    VALUES (?, ?, ?, ?)
-  `).run(characterId, filename, nickname || '', position);
+    VALUES ($1, $2, $3, $4)
+    RETURNING id
+  `, [characterId, filename, nickname || '', position]);
+  return result.rows[0];
 }
 
-function updateNickname(id, nickname) {
-  db.prepare('UPDATE character_images SET nickname = ? WHERE id = ?').run(nickname || '', id);
+async function updateNickname(id, nickname) {
+  await db.query('UPDATE character_images SET nickname = $1 WHERE id = $2', [nickname || '', id]);
 }
 
-function remove(id) {
-  db.prepare('DELETE FROM character_images WHERE id = ?').run(id);
+async function remove(id) {
+  await db.query('DELETE FROM character_images WHERE id = $1', [id]);
 }
 
-function listFilenames(characterId) {
-  return db.prepare('SELECT filename FROM character_images WHERE character_id = ?')
-    .all(characterId)
-    .map((row) => row.filename);
+async function listFilenames(characterId) {
+  const result = await db.query('SELECT filename FROM character_images WHERE character_id = $1', [characterId]);
+  return result.rows.map((row) => row.filename);
 }
 
-function count() {
-  return db.prepare('SELECT COUNT(*) AS total FROM character_images').get().total;
+async function count() {
+  const result = await db.query('SELECT COUNT(*) AS total FROM character_images');
+  return parseInt(result.rows[0].total, 10);
 }
 
 module.exports = {

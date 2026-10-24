@@ -5,10 +5,11 @@ const { setFlash } = require('../middlewares/auth');
 const { removeFile } = require('../utils/files');
 const { destroyUserSessions } = require('../utils/sessions');
 const { isValidPassword } = require('../utils/validation');
+const { uploadToSupabase } = require('../middlewares/upload');
 
-function show(req, res) {
-  const characters = Character.listByUser(req.user.id);
-  const totalPhotos = characters.reduce((total, character) => total + (character.image_count || 0), 0);
+async function show(req, res) {
+  const characters = await Character.listByUser(req.user.id);
+  const totalPhotos = characters.reduce((total, character) => total + (parseInt(character.image_count, 10) || 0), 0);
 
   return res.render('profile', {
     title: 'Mi perfil',
@@ -17,12 +18,17 @@ function show(req, res) {
   });
 }
 
-function listPublic(req, res) {
-  const users = User.listAll();
-  const usersWithFeatured = users.map((account) => ({
-    ...account,
-    featured: Character.featuredByUser(account.id, 3)
-  }));
+async function listPublic(req, res) {
+  const users = await User.listAll();
+  const usersWithFeatured = [];
+  for (let i = 0; i < users.length; i += 1) {
+    const account = users[i];
+    const featured = await Character.featuredByUser(account.id, 3);
+    usersWithFeatured.push({
+      ...account,
+      featured
+    });
+  }
 
   return res.render('users/index', {
     title: 'Perfiles de la comunidad',
@@ -30,15 +36,15 @@ function listPublic(req, res) {
   });
 }
 
-function publicShow(req, res) {
-  const account = User.findByUsername(req.params.username);
+async function publicShow(req, res) {
+  const account = await User.findByUsername(req.params.username);
 
   if (!account) {
     return res.status(404).render('errors/404', { title: 'Perfil no encontrado' });
   }
 
-  const characters = Character.listByUser(account.id);
-  const totalPhotos = characters.reduce((total, character) => total + (character.image_count || 0), 0);
+  const characters = await Character.listByUser(account.id);
+  const totalPhotos = characters.reduce((total, character) => total + (parseInt(character.image_count, 10) || 0), 0);
 
   return res.render('users/show', {
     title: `@${account.username}`,
@@ -48,7 +54,7 @@ function publicShow(req, res) {
   });
 }
 
-function updateAvatar(req, res) {
+async function updateAvatar(req, res) {
   const file = req.file;
 
   if (!file) {
@@ -56,15 +62,22 @@ function updateAvatar(req, res) {
     return res.redirect('/perfil');
   }
 
-  const previousAvatar = req.user.avatar;
-  User.updateAvatar(req.user.id, file.filename);
+  try {
+    const uploaded = await uploadToSupabase(file.buffer, file.mimetype, file.originalname, 'avatars');
+    const previousAvatar = req.user.avatar;
+    await User.updateAvatar(req.user.id, uploaded.filename);
 
-  if (previousAvatar) {
-    removeFile('avatars', previousAvatar);
+    if (previousAvatar) {
+      removeFile('avatars', previousAvatar);
+    }
+
+    setFlash(req, 'success', 'Foto de perfil actualizada.');
+    return res.redirect('/perfil');
+  } catch (error) {
+    console.error('Error subiendo avatar:', error.message);
+    setFlash(req, 'error', 'No se pudo subir la foto de perfil.');
+    return res.redirect('/perfil');
   }
-
-  setFlash(req, 'success', 'Foto de perfil actualizada.');
-  return res.redirect('/perfil');
 }
 
 async function changePassword(req, res, next) {
@@ -95,7 +108,7 @@ async function changePassword(req, res, next) {
     }
 
     const hash = await bcrypt.hash(newPassword, 12);
-    User.updatePassword(req.user.id, hash);
+    await User.updatePassword(req.user.id, hash);
     destroyUserSessions(req.user.id, req.sessionID);
 
     setFlash(req, 'success', 'Contraseña actualizada correctamente.');

@@ -23,7 +23,7 @@
           <a class="user-community-profile" href="/usuarios/<%= encodeURIComponent(account.username) %>">
             <span class="user-card-avatar user-card-avatar-lg">
               <% if (account.avatar) { %>
-                <img src="/uploads/avatars/<%= account.avatar %>" alt="Foto de perfil de <%= account.username %>" loading="lazy">
+                <img src="<%= getImageUrl(account.avatar) %>" alt="Foto de perfil de <%= account.username %>" loading="lazy">
               <% } else { %>
                 <span><%= initials(account.username) %></span>
               <% } %>
@@ -49,9 +49,9 @@
             <div class="user-featured-grid">
               <% account.featured.forEach((character) => { %>
                 <a class="user-featured-card" href="/personajes/<%= character.id %>">
-                  <div class="user-featured-cover" <%= character.bg_image ? 'style="background-image: url(/uploads/characters/' + character.bg_image + ')"' : '' %>>
+                  <div class="user-featured-cover" <%= character.bg_image ? 'style="background-image: url(' + getImageUrl(character.bg_image) + ')"' : '' %>>
                     <% if (character.cover) { %>
-                      <img src="/uploads/characters/<%= character.cover %>" alt="Foto de <%= character.name %>" loading="lazy">
+                      <img src="<%= getImageUrl(character.cover) %>" alt="Foto de <%= character.name %>" loading="lazy">
                     <% } else { %>
                       <span class="user-featured-initials"><%= initials(character.name) %></span>
                     <% } %>

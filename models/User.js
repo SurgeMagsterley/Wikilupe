@@ -1,51 +1,55 @@
 const db = require('../config/database');
 
-function findByUsername(username) {
-  return db.prepare('SELECT * FROM users WHERE username = ?').get(String(username).trim());
+async function findByUsername(username) {
+  const result = await db.query('SELECT * FROM users WHERE LOWER(username) = LOWER($1)', [String(username).trim()]);
+  return result.rows[0] || null;
 }
 
-function findById(id) {
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+async function findById(id) {
+  const result = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+  return result.rows[0] || null;
 }
 
-function create(username, passwordHash) {
-  const info = db.prepare(
-    'INSERT INTO users (username, password_hash) VALUES (?, ?)'
-  ).run(String(username).trim(), passwordHash);
-  return findById(info.lastInsertRowid);
+async function create(username, passwordHash) {
+  const result = await db.query(
+    'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id',
+    [String(username).trim(), passwordHash]
+  );
+  return findById(result.rows[0].id);
 }
 
-function updateAvatar(id, filename) {
-  db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(filename, id);
+async function updateAvatar(id, filename) {
+  await db.query('UPDATE users SET avatar = $1 WHERE id = $2', [filename, id]);
 }
 
-function updatePassword(id, passwordHash) {
-  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, id);
+async function updatePassword(id, passwordHash) {
+  await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, id]);
 }
 
-function listAll() {
-  return db.prepare(`
+async function listAll() {
+  const result = await db.query(`
     SELECT u.id, u.username, u.avatar, u.is_admin, u.created_at,
            COUNT(c.id) AS character_count
     FROM users u
     LEFT JOIN characters c ON c.user_id = u.id
     GROUP BY u.id
-    ORDER BY u.is_admin DESC, u.username COLLATE NOCASE
-  `).all();
+    ORDER BY u.is_admin DESC, LOWER(u.username)
+  `);
+  return result.rows;
 }
 
-function listUsernames() {
-  return db.prepare('SELECT username FROM users ORDER BY username COLLATE NOCASE')
-    .all()
-    .map((row) => row.username);
+async function listUsernames() {
+  const result = await db.query('SELECT username FROM users ORDER BY LOWER(username)');
+  return result.rows.map((row) => row.username);
 }
 
-function count() {
-  return db.prepare('SELECT COUNT(*) AS total FROM users').get().total;
+async function count() {
+  const result = await db.query('SELECT COUNT(*) AS total FROM users');
+  return parseInt(result.rows[0].total, 10);
 }
 
-function remove(id) {
-  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+async function remove(id) {
+  await db.query('DELETE FROM users WHERE id = $1', [id]);
 }
 
 module.exports = {
