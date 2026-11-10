@@ -75,6 +75,83 @@
   </section>
 </div>
 
+<section class="panel profile-featured" id="destacados">
+  <div class="section-heading compact-heading">
+    <div>
+      <span class="eyebrow">Escaparate del perfil</span>
+      <h2>Personajes destacados</h2>
+    </div>
+    <span class="badge">Hasta 3</span>
+  </div>
+
+  <p class="muted">
+    Elige tus 3 personajes favoritos. Aparecerán destacados en tu perfil y en la lista de
+    <a href="/usuarios">Perfiles</a> de la comunidad.
+  </p>
+
+  <% if (characters.length) { %>
+    <form action="/perfil/destacados" method="POST" class="featured-form">
+      <div class="featured-slots">
+        <% for (let position = 1; position <= 3; position += 1) { %>
+          <% const current = characters.find((character) => Number(character.featured_rank) === position); %>
+          <label>
+            <span class="featured-slot-number">#<%= position %></span>
+            <select name="featured_<%= position %>">
+              <option value="">— Sin elegir —</option>
+              <% characters.forEach((character) => { %>
+                <option value="<%= character.id %>" <%= current && current.id === character.id ? 'selected' : '' %>>
+                  <%= character.name %>
+                </option>
+              <% }) %>
+            </select>
+          </label>
+        <% } %>
+      </div>
+
+      <div class="form-actions form-actions-inline">
+        <button type="submit" class="btn btn-secondary">Guardar destacados</button>
+        <small class="hint">Si no eliges ninguno, se muestran tus 3 personajes más recientes.</small>
+      </div>
+    </form>
+
+    <%
+      const chosenFeatured = characters
+        .filter((character) => character.featured_rank)
+        .sort((a, b) => Number(a.featured_rank) - Number(b.featured_rank));
+      const featuredShowcase = chosenFeatured.length ? chosenFeatured : characters.slice(0, 3);
+    %>
+
+    <% if (featuredShowcase.length) { %>
+      <div class="user-featured profile-featured-preview">
+        <div class="user-featured-heading">
+          <span class="eyebrow">Así se ven ahora</span>
+          <span class="muted small"><%= chosenFeatured.length ? 'Tus elecciones' : 'Más recientes (sin elección)' %></span>
+        </div>
+
+        <div class="user-featured-grid">
+          <% featuredShowcase.forEach((character) => { %>
+            <a class="user-featured-card" href="/personajes/<%= character.id %>">
+              <div class="user-featured-cover" <%= character.bg_image ? 'style="background-image: url(' + getImageUrl(character.bg_image) + ')"' : '' %>>
+                <% if (character.cover) { %>
+                  <img src="<%= getImageUrl(character.cover) %>" alt="Foto de <%= character.name %>" loading="lazy">
+                <% } else { %>
+                  <span class="user-featured-initials"><%= initials(character.name) %></span>
+                <% } %>
+              </div>
+              <div class="user-featured-body">
+                <strong><%= character.name %></strong>
+                <span class="user-featured-meta"><%= elementInfo(character.element).emoji %> <%= character.element %> · <%= roleInfo(character.role).label %></span>
+              </div>
+            </a>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
+  <% } else { %>
+    <p class="muted small">Sube tu primer personaje para poder destacarlo.</p>
+  <% } %>
+</section>
+
 <section class="section">
   <div class="section-heading">
     <div>

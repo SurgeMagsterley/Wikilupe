@@ -9,6 +9,7 @@ router.use(requireAuth);
 
 router.get('/', profileController.show);
 router.post('/avatar', avatarUpload.single('avatar'), profileController.updateAvatar);
+router.post('/destacados', profileController.updateFeatured);
 router.post('/password', profileController.changePassword);
 
 module.exports = router;

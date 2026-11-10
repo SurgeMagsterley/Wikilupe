@@ -13,6 +13,9 @@ const {
   ROLES,
   ELEMENTS,
   RELATION_TYPES,
+  TIMELINE_CATEGORIES,
+  TIMELINE_MAX_LENGTH,
+  MAX_FEATURED_CHARACTERS,
   GENDERS,
   SEXUALITIES,
   COMBAT_ROLES,
@@ -24,11 +27,13 @@ const {
   ELEMENT_THEMES,
   roleInfo,
   relationInfo,
+  timelineCategoryInfo,
   elementInfo,
   elementTheme,
   initials,
   formatDate,
-  formatDateTime
+  formatDateTime,
+  formatDateParts
 } = require('./config/constants');
 
 seedSuperadmin();
@@ -71,6 +76,9 @@ app.use((req, res, next) => {
   res.locals.ROLES = ROLES;
   res.locals.ELEMENTS = ELEMENTS;
   res.locals.RELATION_TYPES = RELATION_TYPES;
+  res.locals.TIMELINE_CATEGORIES = TIMELINE_CATEGORIES;
+  res.locals.TIMELINE_MAX_LENGTH = TIMELINE_MAX_LENGTH;
+  res.locals.MAX_FEATURED_CHARACTERS = MAX_FEATURED_CHARACTERS;
   res.locals.GENDERS = GENDERS;
   res.locals.SEXUALITIES = SEXUALITIES;
   res.locals.COMBAT_ROLES = COMBAT_ROLES;
@@ -82,11 +90,13 @@ app.use((req, res, next) => {
   res.locals.ELEMENT_THEMES = ELEMENT_THEMES;
   res.locals.roleInfo = roleInfo;
   res.locals.relationInfo = relationInfo;
+  res.locals.timelineCategoryInfo = timelineCategoryInfo;
   res.locals.elementInfo = elementInfo;
   res.locals.elementTheme = elementTheme;
   res.locals.initials = initials;
   res.locals.formatDate = formatDate;
   res.locals.formatDateTime = formatDateTime;
+  res.locals.formatDateParts = formatDateParts;
   res.locals.getImageUrl = getImageUrl;
   next();
 });
@@ -98,6 +108,7 @@ app.use('/auth', require('./routes/auth'));
 app.use('/perfil', require('./routes/profile'));
 app.use('/usuarios', require('./routes/users'));
 app.use('/personajes', require('./routes/characters'));
+app.use('/cronologia', require('./routes/timeline'));
 app.use('/admin', require('./routes/admin'));
 
 app.use((req, res) => {
@@ -128,7 +139,7 @@ app.use((error, req, res, next) => {
 
     if (error instanceof multer.MulterError) {
       if (error.code === 'LIMIT_FILE_SIZE') {
-        message = 'La imagen es demasiado grande. El máximo es 6 MB por foto (4 MB para el avatar).';
+        message = 'La imagen es demasiado grande. El máximo es 8 MB por foto (4 MB para el avatar).';
       } else if (error.code === 'LIMIT_FILE_COUNT' || error.code === 'LIMIT_UNEXPECTED_FILE') {
         message = 'Se subieron demasiadas imágenes o el campo no es válido.';
       }

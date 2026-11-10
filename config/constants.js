@@ -35,8 +35,21 @@ const ELEMENTS = [
 const RELATION_TYPES = [
   { value: 'familiar', label: 'Familiares', emoji: '👪' },
   { value: 'amigo', label: 'Amigos', emoji: '🤝' },
-  { value: 'conocido', label: 'Conocidos', emoji: '👋' }
+  { value: 'conocido', label: 'Conocidos', emoji: '👋' },
+  { value: 'pareja', label: 'Pareja', emoji: '💞' },
+  { value: 'casado', label: 'Casado/a', emoji: '💍' }
 ];
+
+const TIMELINE_CATEGORIES = [
+  { value: 'importante', label: 'Importante', color: '#ffc857' },
+  { value: 'relevante', label: 'Relevante', color: '#4ee1ff' },
+  { value: 'principal', label: 'Principal', color: '#a66bff' },
+  { value: 'secundario', label: 'Secundario', color: '#4ee6a8' },
+  { value: 'historia', label: 'Historia de Personaje', color: '#ff4fd8' }
+];
+
+const TIMELINE_MAX_LENGTH = 700;
+const MAX_FEATURED_CHARACTERS = 3;
 
 const GENDERS = ['Masculino', 'Femenino', 'No binario', 'Transgénero', 'Intersexual', 'Otro'];
 const SEXUALITIES = ['Heterosexual', 'Homosexual', 'Bisexual', 'Pansexual', 'Asexual', 'Demisexual', 'Queer', 'Otro'];
@@ -144,6 +157,7 @@ const THEME_FALLBACK = ELEMENT_THEMES.ninguno;
 
 const ROLE_MAP = Object.fromEntries(ROLES.map((role) => [role.value, role]));
 const RELATION_MAP = Object.fromEntries(RELATION_TYPES.map((type) => [type.value, type]));
+const TIMELINE_MAP = Object.fromEntries(TIMELINE_CATEGORIES.map((category) => [category.value, category]));
 
 function roleInfo(value) {
   return ROLE_MAP[value] || { value: value || 'secundario', label: value || 'Secundario' };
@@ -151,6 +165,10 @@ function roleInfo(value) {
 
 function relationInfo(value) {
   return RELATION_MAP[value] || { value, label: value };
+}
+
+function timelineCategoryInfo(value) {
+  return TIMELINE_MAP[value] || { value, label: value, color: THEME_FALLBACK.colors[0] };
 }
 
 function elementInfo(value) {
@@ -176,17 +194,45 @@ function initials(name) {
     .join('') || '?';
 }
 
+function toDate(value) {
+  if (value instanceof Date) return value;
+  if (!value) return null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // ISO 8601 (`2026-11-09T12:00:00Z`) se parsea directo. Los valores tipo
+  // `2026-11-09 12:00:00` se normalizan antes de agregarles la zona UTC.
+  // Fecha sin hora: se interpreta en la zona local para no saltar de día.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  let normalized = raw;
+  if (/T\d{2}:\d{2}/.test(raw)) {
+    // Normaliza zonas tipo `+00` a `+00:00`.
+    normalized = raw.replace(/([+-]\d{2})$/, '$1:00');
+  } else {
+    normalized = raw.replace(' ', 'T');
+    if (!/[zZ]$|[+-]\d{2}(:?\d{2})?$/.test(normalized)) {
+      normalized += 'Z';
+    } else {
+      normalized = normalized.replace(/([+-]\d{2})$/, '$1:00');
+    }
+  }
+  return new Date(normalized);
+}
+
 function formatDate(value) {
-  if (!value) return '';
-  const date = new Date(String(value).replace(' ', 'T') + 'Z');
-  if (Number.isNaN(date.getTime())) return String(value);
+  const date = toDate(value);
+  if (!date || Number.isNaN(date.getTime())) return value ? String(value) : '';
   return date.toLocaleDateString('es-419', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatDateTime(value) {
-  if (!value) return '';
-  const date = new Date(String(value).replace(' ', 'T') + 'Z');
-  if (Number.isNaN(date.getTime())) return String(value);
+  const date = toDate(value);
+  if (!date || Number.isNaN(date.getTime())) return value ? String(value) : '';
   return date.toLocaleString('es-419', {
     day: '2-digit',
     month: '2-digit',
@@ -196,10 +242,27 @@ function formatDateTime(value) {
   });
 }
 
+function formatDateParts(value) {
+  const date = toDate(value);
+  if (!date || Number.isNaN(date.getTime())) {
+    return { day: '--', month: '', year: '', time: '' };
+  }
+
+  return {
+    day: date.toLocaleDateString('es-419', { day: '2-digit' }),
+    month: date.toLocaleDateString('es-419', { month: 'short' }).replace('.', ''),
+    year: date.toLocaleDateString('es-419', { year: 'numeric' }),
+    time: date.toLocaleTimeString('es-419', { hour: '2-digit', minute: '2-digit' })
+  };
+}
+
 module.exports = {
   ROLES,
   ELEMENTS,
   RELATION_TYPES,
+  TIMELINE_CATEGORIES,
+  TIMELINE_MAX_LENGTH,
+  MAX_FEATURED_CHARACTERS,
   GENDERS,
   SEXUALITIES,
   COMBAT_ROLES,
@@ -210,14 +273,18 @@ module.exports = {
   COLOR_PRESETS,
   ELEMENT_THEMES,
   ROLE_MAP,
+  TIMELINE_MAP,
   ROLE_NAMES: ROLES.map((role) => role.value),
   RELATION_NAMES: RELATION_TYPES.map((type) => type.value),
+  TIMELINE_NAMES: TIMELINE_CATEGORIES.map((category) => category.value),
   roleInfo,
   relationInfo,
+  timelineCategoryInfo,
   elementInfo,
   elementTheme,
   normalizeHexColor,
   initials,
   formatDate,
-  formatDateTime
+  formatDateTime,
+  formatDateParts
 };

@@ -43,6 +43,35 @@
   <div class="mini-stat"><strong><%= formatDate(account.created_at) %></strong><span>Miembro desde</span></div>
 </div>
 
+<% if (featured && featured.length) { %>
+  <section class="section profile-featured-showcase">
+    <div class="section-heading">
+      <div>
+        <span class="eyebrow">Destacados de @<%= account.username %></span>
+        <h2>Personajes favoritos</h2>
+      </div>
+    </div>
+
+    <div class="user-featured-grid">
+      <% featured.forEach((character) => { %>
+        <a class="user-featured-card" href="/personajes/<%= character.id %>">
+          <div class="user-featured-cover" <%= character.bg_image ? 'style="background-image: url(' + getImageUrl(character.bg_image) + ')"' : '' %>>
+            <% if (character.cover) { %>
+              <img src="<%= getImageUrl(character.cover) %>" alt="Foto de <%= character.name %>" loading="lazy">
+            <% } else { %>
+              <span class="user-featured-initials"><%= initials(character.name) %></span>
+            <% } %>
+          </div>
+          <div class="user-featured-body">
+            <strong><%= character.name %></strong>
+            <span class="user-featured-meta"><%= elementInfo(character.element).emoji %> <%= character.element %> · <%= roleInfo(character.role).label %></span>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+  </section>
+<% } %>
+
 <section class="section">
   <div class="section-heading">
     <div>

@@ -18,7 +18,7 @@
     <h1><%= mode === 'edit' ? 'Editar personaje' : 'Subir personaje' %></h1>
     <p class="lead compact">
       <%= mode === 'edit'
-        ? 'Cambia datos, fotos, apodos, color de fondo o estadísticas. Las relaciones se administran desde la ficha pública.'
+        ? 'Cambia datos, fotos, apodos, color de fondo, estadísticas y el árbol de relaciones. Puedes elegir qué foto se muestra como principal.'
         : 'Completa lo que quieras mostrar. Solo el nombre, el elemento y la categoría son obligatorios.' %>
     </p>
   </div>
@@ -41,6 +41,7 @@
   class="stack-lg"
   id="characterForm"
   data-nickname-field="<%= mode === 'edit' ? 'new_nicknames' : 'photo_nicknames' %>"
+  data-existing-count="<%= mode === 'edit' ? images.length : 0 %>"
 >
   <% if (showQuickIndex) { %>
     <nav class="form-quick-index panel" aria-label="Índice rápido del formulario">
@@ -58,6 +59,7 @@
         <a href="#estadisticas">Estadísticas</a>
         <a href="#datos-curiosos">Datos curiosos</a>
         <a href="#fondo-ficha">Fondo de la ficha</a>
+        <a href="#relaciones">Relaciones</a>
       </div>
     </nav>
   <% } %>
@@ -245,13 +247,20 @@
     <% if (mode === 'edit' && images.length) { %>
       <div class="existing-images">
         <% images.forEach((image) => { %>
-          <div class="existing-image">
+          <div class="existing-image<%= image.is_primary ? ' is-primary' : '' %>">
             <div class="existing-image-thumb">
               <img src="<%= getImageUrl(image.filename) %>" alt="Foto de <%= values.name %>" loading="lazy">
+              <% if (image.is_primary) { %>
+                <span class="primary-badge">★ Principal</span>
+              <% } %>
             </div>
             <label>
               Apodo de esta foto
               <input type="text" name="nickname_<%= image.id %>" value="<%= image.nickname %>" maxlength="60" placeholder="Ej: Outfit de invierno">
+            </label>
+            <label class="checkbox">
+              <input type="radio" name="primary_image" value="<%= image.id %>" <%= image.is_primary ? 'checked' : '' %>>
+              <span>Usar como imagen principal</span>
             </label>
             <label class="checkbox">
               <input type="checkbox" name="remove_image_<%= image.id %>" value="1">
@@ -260,13 +269,19 @@
           </div>
         <% }) %>
       </div>
+      <p class="hint">La imagen principal es la que se muestra en la ficha pública, las tarjetas y los perfiles. Las demás fotos siguen disponibles en la galería.</p>
     <% } %>
 
     <label class="file-drop">
       <span class="file-drop-title"><%= mode === 'edit' ? 'Agregar más fotos' : 'Elegir fotos del personaje' %></span>
       <input type="file" name="photos" id="photoInput" accept="image/jpeg,image/png,image/webp,image/gif" multiple>
-      <small>JPG, PNG, WEBP o GIF · máximo 8 MB por foto · hasta 12 fotos</small>
+      <small>JPG, PNG, WEBP o GIF · máximo 8 MB por foto · hasta 12 fotos en total</small>
     </label>
+
+    <p class="hint" id="photoSelectionHint">
+      Puedes elegir varias fotos a la vez o agregarlas en varias selecciones: las anteriores no se borran.
+      <% if (mode === 'edit') { %>Las fotos nuevas se pueden marcar como principal después de guardar.<% } %>
+    </p>
 
     <div id="photoNicknames" class="photo-nicknames"></div>
     </div>
@@ -398,22 +413,6 @@
     </div>
   </details>
 
-  <section class="panel relation-note">
-    <span class="feature-icon">👪</span>
-    <div>
-      <h3>Árbol de relaciones</h3>
-      <% if (mode === 'edit') { %>
-        <p>
-          Agrega familiares, amigos y conocidos desde la
-          <a href="/personajes/<%= character.id %>#relaciones">ficha pública</a>.
-          Puedes vincular personajes de otras cuentas o escribir un nombre externo.
-        </p>
-      <% } else { %>
-        <p>Después de guardar el personaje podrás agregar relaciones con personajes de otras cuentas.</p>
-      <% } %>
-    </div>
-  </section>
-
   <div class="form-actions">
     <a class="btn btn-ghost" href="<%= mode === 'edit' ? '/personajes/' + character.id : '/personajes' %>">Cancelar</a>
     <button type="submit" class="btn btn-primary btn-lg">
@@ -421,6 +420,111 @@
     </button>
   </div>
 </form>
+
+<section class="panel relation-manager" id="relaciones">
+  <div class="section-heading compact-heading">
+    <div>
+      <span class="eyebrow">Vínculos del personaje</span>
+      <h2>Árbol de relaciones</h2>
+    </div>
+    <span class="badge"><%= relationCount %></span>
+  </div>
+
+  <% if (mode !== 'edit') { %>
+    <p class="muted">Guarda el personaje y luego podrás agregar relaciones con personajes de otras cuentas o con nombres externos.</p>
+  <% } else { %>
+    <p class="hint">
+      Agrega familiares, amigos, conocidos, parejas y cónyuges. Puedes vincular personajes de otras cuentas o escribir un nombre externo.
+    </p>
+
+    <% relationGroups.forEach((group) => { %>
+      <div class="relation-group">
+        <h3><%= group.emoji %> <%= group.label %> <span class="count"><%= group.items.length %></span></h3>
+
+        <% if (group.items.length) { %>
+          <ul class="relation-list">
+            <% group.items.forEach((relation) => { %>
+              <li class="relation-item">
+                <% if (relation.related_character_id) { %>
+                  <a class="relation-person" href="/personajes/<%= relation.related_character_id %>">
+                    <span class="mini-avatar">
+                      <% if (relation.related_cover) { %>
+                        <img src="<%= getImageUrl(relation.related_cover) %>" alt="" loading="lazy">
+                      <% } else { %>
+                        <%= initials(relation.related_name) %>
+                      <% } %>
+                    </span>
+                    <span class="relation-info">
+                      <strong><%= relation.related_name %></strong>
+                      <small>@<%= relation.related_username %> · <%= roleInfo(relation.related_role).label %></small>
+                    </span>
+                  </a>
+                <% } else { %>
+                  <span class="relation-person">
+                    <span class="mini-avatar"><%= initials(relation.external_name) %></span>
+                    <span class="relation-info">
+                      <strong><%= relation.external_name %></strong>
+                      <small>Personaje externo</small>
+                    </span>
+                  </span>
+                <% } %>
+
+                <form
+                  action="/personajes/<%= character.id %>/relaciones/<%= relation.id %>/eliminar"
+                  method="POST"
+                  data-confirm="¿Quitar esta relación del árbol?"
+                >
+                  <button type="submit" class="icon-btn" aria-label="Eliminar relación" title="Eliminar relación">&times;</button>
+                </form>
+              </li>
+            <% }) %>
+          </ul>
+        <% } else { %>
+          <p class="tiny-muted">Sin registros.</p>
+        <% } %>
+      </div>
+    <% }) %>
+
+    <form action="/personajes/<%= character.id %>/relaciones" method="POST" class="relation-form">
+      <h3>Agregar relación</h3>
+
+      <label>
+        Tipo de vínculo
+        <select name="relation_type" required>
+          <% RELATION_TYPES.forEach((type) => { %>
+            <option value="<%= type.value %>"><%= type.emoji %> <%= type.label %></option>
+          <% }) %>
+        </select>
+      </label>
+
+      <label>
+        Buscar personaje del sitio
+        <input type="search" id="relationSearch" placeholder="Filtrar por nombre o usuario…" autocomplete="off">
+      </label>
+
+      <label>
+        Personaje del sitio
+        <select name="related_character_id" id="relatedCharacterSelect">
+          <option value="">— Ninguno / personaje externo —</option>
+          <% candidates.forEach((candidate) => { %>
+            <option value="<%= candidate.id %>">
+              <%= candidate.name %> (@<%= candidate.username %>) · <%= roleInfo(candidate.role).label %>
+            </option>
+          <% }) %>
+        </select>
+        <small class="hint">Incluye personajes de otras cuentas.</small>
+      </label>
+
+      <label>
+        O nombre de un personaje externo
+        <input type="text" name="external_name" maxlength="80" placeholder="Ej: Personaje que no está en WikiLupe">
+        <small class="hint">Si eliges un personaje del sitio, este campo se ignora.</small>
+      </label>
+
+      <button type="submit" class="btn btn-secondary btn-block">Agregar al árbol</button>
+    </form>
+  <% } %>
+</section>
 
 <datalist id="elementOptions">
   <% ELEMENTS.forEach((element) => { %>

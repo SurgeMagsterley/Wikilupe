@@ -60,7 +60,8 @@ async function list({ q = '', role = '', element = '', creator = '' } = {}) {
   const result = await db.query(`
     SELECT c.*, u.username,
       (SELECT i.filename FROM character_images i
-        WHERE i.character_id = c.id ORDER BY i.position ASC, i.id ASC LIMIT 1) AS cover
+        WHERE i.character_id = c.id
+        ORDER BY i.is_primary DESC, i.position ASC, i.id ASC LIMIT 1) AS cover
     FROM characters c
     JOIN users u ON u.id = c.user_id
     ${where}
@@ -84,26 +85,66 @@ async function listByUser(userId) {
   const result = await db.query(`
     SELECT c.*,
       (SELECT i.filename FROM character_images i
-        WHERE i.character_id = c.id ORDER BY i.position ASC, i.id ASC LIMIT 1) AS cover,
+        WHERE i.character_id = c.id
+        ORDER BY i.is_primary DESC, i.position ASC, i.id ASC LIMIT 1) AS cover,
       (SELECT COUNT(*) FROM character_images i WHERE i.character_id = c.id) AS image_count
     FROM characters c
     WHERE c.user_id = $1
-    ORDER BY c.created_at DESC, c.id DESC
+    ORDER BY c.featured_rank ASC NULLS LAST, c.created_at DESC, c.id DESC
   `, [userId]);
   return result.rows;
 }
 
+/**
+ * Devuelve los 3 destacados elegidos por el usuario. Si todavía no eligió
+ * ninguno, mantiene el comportamiento anterior: los 3 más recientes.
+ */
 async function featuredByUser(userId, limit = 3) {
+  const selected = await db.query(`
+    SELECT c.*,
+      (SELECT i.filename FROM character_images i
+        WHERE i.character_id = c.id
+        ORDER BY i.is_primary DESC, i.position ASC, i.id ASC LIMIT 1) AS cover
+    FROM characters c
+    WHERE c.user_id = $1 AND c.featured_rank IS NOT NULL
+    ORDER BY c.featured_rank ASC
+    LIMIT $2
+  `, [userId, limit]);
+
+  if (selected.rows.length > 0) {
+    return selected.rows;
+  }
+
   const result = await db.query(`
     SELECT c.*,
       (SELECT i.filename FROM character_images i
-        WHERE i.character_id = c.id ORDER BY i.position ASC, i.id ASC LIMIT 1) AS cover
+        WHERE i.character_id = c.id
+        ORDER BY i.is_primary DESC, i.position ASC, i.id ASC LIMIT 1) AS cover
     FROM characters c
     WHERE c.user_id = $1
     ORDER BY c.updated_at DESC, c.created_at DESC, c.id DESC
     LIMIT $2
   `, [userId, limit]);
   return result.rows;
+}
+
+/**
+ * Guarda los destacados del usuario. Recibe IDs en orden (1.º, 2.º, 3.º).
+ * Si hay menos de 3, los espacios restantes quedan vacíos.
+ */
+async function setFeatured(userId, characterIds, client) {
+  const executor = client || db;
+  await executor.query(
+    'UPDATE characters SET featured_rank = NULL WHERE user_id = $1',
+    [userId]
+  );
+
+  for (let index = 0; index < characterIds.length; index += 1) {
+    await executor.query(
+      'UPDATE characters SET featured_rank = $1 WHERE id = $2 AND user_id = $3',
+      [index + 1, characterIds[index], userId]
+    );
+  }
 }
 
 async function count() {
@@ -118,9 +159,21 @@ async function countByRole() {
   return result.rows;
 }
 
+async function findExistingIds(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+  const result = await db.query(
+    'SELECT id FROM characters WHERE id = ANY($1::int[])',
+    [ids]
+  );
+  return result.rows.map((row) => row.id);
+}
+
 async function allForSelect(excludeId) {
   const result = await db.query(`
-    SELECT c.id, c.name, c.role, u.username
+    SELECT c.id, c.name, c.role, u.username,
+           (SELECT i.filename FROM character_images i
+             WHERE i.character_id = c.id
+             ORDER BY i.is_primary DESC, i.position ASC, i.id ASC LIMIT 1) AS cover
     FROM characters c
     JOIN users u ON u.id = c.user_id
     WHERE c.id != $1
@@ -165,7 +218,8 @@ async function create(userId, data, client) {
   return result.rows[0].id;
 }
 
-async function update(id, data) {
+async function update(id, data, client) {
+  const executor = client || db;
   const detailKeys = Object.keys(DETAIL_FIELDS);
   const values = [
     data.name,
@@ -198,7 +252,7 @@ async function update(id, data) {
     ...detailKeys.map((key, idx) => `${DETAIL_FIELDS[key]} = $${12 + idx}`)
   ];
 
-  await db.query(`UPDATE characters SET ${assignments.join(', ')}, updated_at = NOW() WHERE id = $${values.length}`, values);
+  await executor.query(`UPDATE characters SET ${assignments.join(', ')}, updated_at = NOW() WHERE id = $${values.length}`, values);
 }
 
 async function remove(id) {
@@ -212,8 +266,10 @@ module.exports = {
   count,
   countByRole,
   allForSelect,
+  findExistingIds,
   create,
   update,
   remove,
-  featuredByUser
+  featuredByUser,
+  setFeatured
 };

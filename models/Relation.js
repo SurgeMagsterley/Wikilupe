@@ -5,7 +5,10 @@ async function listByCharacter(characterId) {
     SELECT r.*,
            rc.name AS related_name,
            rc.role AS related_role,
-           u.username AS related_username
+           u.username AS related_username,
+           (SELECT i.filename FROM character_images i
+             WHERE i.character_id = rc.id
+             ORDER BY i.is_primary DESC, i.position ASC, i.id ASC LIMIT 1) AS related_cover
     FROM relations r
     LEFT JOIN characters rc ON rc.id = r.related_character_id
     LEFT JOIN users u ON u.id = rc.user_id

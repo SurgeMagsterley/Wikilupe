@@ -51,12 +51,16 @@ CREATE TABLE IF NOT EXISTS characters (
   bg_color TEXT NOT NULL DEFAULT '',
   bg_image TEXT NOT NULL DEFAULT '',
   history TEXT NOT NULL DEFAULT '',
+  featured_rank SMALLINT CHECK (featured_rank BETWEEN 1 AND 3),
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_characters_user ON characters (user_id);
 CREATE INDEX IF NOT EXISTS idx_characters_role ON characters (role);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_characters_featured_rank
+  ON characters (user_id, featured_rank)
+  WHERE featured_rank IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS character_images (
   id SERIAL PRIMARY KEY,
@@ -64,10 +68,14 @@ CREATE TABLE IF NOT EXISTS character_images (
   filename TEXT NOT NULL,
   nickname TEXT NOT NULL DEFAULT '',
   position INTEGER NOT NULL DEFAULT 0,
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_images_character ON character_images (character_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_images_primary
+  ON character_images (character_id)
+  WHERE is_primary;
 
 CREATE TABLE IF NOT EXISTS character_facts (
   id SERIAL PRIMARY KEY,
@@ -83,10 +91,32 @@ CREATE TABLE IF NOT EXISTS relations (
   character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
   related_character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
   external_name TEXT,
-  relation_type TEXT NOT NULL CHECK (relation_type IN ('familiar', 'amigo', 'conocido')),
+  relation_type TEXT NOT NULL CHECK (relation_type IN ('familiar', 'amigo', 'conocido', 'pareja', 'casado')),
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   CHECK (related_character_id IS NOT NULL OR (external_name IS NOT NULL AND TRIM(external_name) <> ''))
 );
 
 CREATE INDEX IF NOT EXISTS idx_relations_character ON relations (character_id);
 CREATE INDEX IF NOT EXISTS idx_relations_related ON relations (related_character_id);
+
+CREATE TABLE IF NOT EXISTS timeline_events (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  category TEXT NOT NULL CHECK (category IN ('importante', 'relevante', 'principal', 'secundario', 'historia')),
+  content TEXT NOT NULL CHECK (char_length(content) BETWEEN 1 AND 700),
+  event_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_timeline_events_created ON timeline_events (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_timeline_events_event_date ON timeline_events (event_date, created_at);
+CREATE INDEX IF NOT EXISTS idx_timeline_events_category ON timeline_events (category);
+
+CREATE TABLE IF NOT EXISTS timeline_event_characters (
+  event_id INTEGER NOT NULL REFERENCES timeline_events(id) ON DELETE CASCADE,
+  character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+  PRIMARY KEY (event_id, character_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_timeline_event_characters_character
+  ON timeline_event_characters (character_id);

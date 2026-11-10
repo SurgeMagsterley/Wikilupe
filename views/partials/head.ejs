@@ -15,7 +15,7 @@
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="/" aria-label="Ir al inicio de WikiLupe">
-        <span class="brand-mark">W</span>
+        <img class="brand-logo" src="/img/logo.png" alt="" width="38" height="38">
         <span class="brand-name">Wiki<strong>Lupe</strong></span>
       </a>
 
@@ -27,6 +27,7 @@
       <nav class="site-nav" id="siteNav" aria-label="Navegación principal">
         <a href="/" class="<%= currentPath === '/' ? 'active' : '' %>">Inicio</a>
         <a href="/personajes" class="<%= currentPath.startsWith('/personajes') ? 'active' : '' %>">Personajes</a>
+        <a href="/cronologia" class="<%= currentPath.startsWith('/cronologia') ? 'active' : '' %>">Cronología</a>
         <a href="/usuarios" class="<%= currentPath.startsWith('/usuarios') ? 'active' : '' %>">Perfiles</a>
 
         <% if (user) { %>

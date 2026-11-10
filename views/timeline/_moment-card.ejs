@@ -1,0 +1,62 @@
+<%
+  const cardCategory = timelineCategoryInfo(event.category);
+  const cardDateLabel = formatDate(event.event_date || event.created_at);
+  const cardClass = cardSize && cardSize !== 'normal' ? ' timeline-card--' + cardSize : '';
+%>
+<article
+  class="timeline-card panel<%= cardClass %>"
+  id="momento-<%= event.id %>"
+  style="--timeline-color: <%= cardCategory.color %>"
+>
+  <header class="timeline-card-head">
+    <span class="timeline-category"><%= cardCategory.label %></span>
+    <time class="timeline-card-time" datetime="<%= event.event_date || '' %>">
+      <span><%= cardDateLabel %></span>
+    </time>
+  </header>
+
+  <p class="timeline-content"><%= event.content %></p>
+
+  <% if (event.characters && event.characters.length) { %>
+    <div class="timeline-characters" aria-label="Personajes vinculados">
+      <% event.characters.forEach((character) => { %>
+        <a class="timeline-character" href="/personajes/<%= character.id %>">
+          <span class="mini-avatar">
+            <% if (character.cover) { %>
+              <img src="<%= getImageUrl(character.cover) %>" alt="" loading="lazy">
+            <% } else { %>
+              <%= initials(character.name) %>
+            <% } %>
+          </span>
+          <span class="timeline-character-info">
+            <strong><%= character.name %></strong>
+            <% if (character.username) { %><small>@<%= character.username %></small><% } %>
+          </span>
+        </a>
+      <% }) %>
+    </div>
+  <% } %>
+
+  <footer class="timeline-card-foot">
+    <span class="timeline-author">
+      <span class="mini-avatar mini-avatar-sm">
+        <% if (event.author_avatar) { %>
+          <img src="<%= getImageUrl(event.author_avatar) %>" alt="" loading="lazy">
+        <% } else { %>
+          <%= initials(event.username) %>
+        <% } %>
+      </span>
+      <span>Publicado por <a href="/usuarios/<%= encodeURIComponent(event.username) %>">@<%= event.username %></a></span>
+    </span>
+
+    <% if (user && (user.is_admin || user.id === event.user_id)) { %>
+      <form
+        action="/cronologia/<%= event.id %>/eliminar"
+        method="POST"
+        data-confirm="¿Eliminar este momento de la cronología?"
+      >
+        <button type="submit" class="icon-btn" aria-label="Eliminar momento" title="Eliminar momento">&times;</button>
+      </form>
+    <% } %>
+  </footer>
+</article>

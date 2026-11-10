@@ -1,0 +1,367 @@
+<%- include('../partials/head') %>
+
+<section class="page-heading timeline-hero">
+  <div>
+    <span class="eyebrow">Línea de tiempo de la comunidad</span>
+    <h1>Cronología</h1>
+    <p class="lead compact">
+      Una sola línea larguísima con los momentos clave de WikiLupe, contados por la comunidad y vinculados a sus personajes.
+    </p>
+  </div>
+  <% if (user) { %>
+    <a class="btn btn-primary" href="#agregar-momento" data-open-composer>+ Agregar momento</a>
+  <% } else { %>
+    <a class="btn btn-primary" href="/auth/login">Inicia sesión para participar</a>
+  <% } %>
+</section>
+
+<div class="timeline-toolbar">
+  <div class="role-filter timeline-filter">
+    <a href="/cronologia" class="category-chip <%= !filterCategory ? 'active' : '' %>">
+      Todos <span><%= total %></span>
+    </a>
+    <% categories.forEach((category) => { %>
+      <a
+        href="/cronologia?categoria=<%= category.value %>"
+        class="category-chip timeline-chip <%= filterCategory === category.value ? 'active' : '' %>"
+        style="--cat-color: <%= category.color %>"
+      >
+        <%= category.label %>
+        <span><%= counts[category.value] || 0 %></span>
+      </a>
+    <% }) %>
+  </div>
+  <span class="timeline-toolbar-count">
+    <strong><%= total %></strong> <%= total === 1 ? 'momento' : 'momentos' %>
+  </span>
+</div>
+
+<details class="timeline-composer-panel panel" id="agregar-momento">
+  <summary class="timeline-composer-summary">
+    <span class="timeline-composer-plus" aria-hidden="true">+</span>
+    <span class="timeline-composer-title">
+      <strong>Agregar un momento</strong>
+      <small>Escribe lo que ocurrió y vincúlalo con uno o varios personajes de la comunidad.</small>
+    </span>
+    <span class="timeline-composer-caret" aria-hidden="true">⌄</span>
+  </summary>
+
+  <div class="timeline-composer-body">
+    <% if (user) { %>
+      <form action="/cronologia" method="POST" class="stack">
+        <fieldset class="timeline-category-fieldset">
+          <legend>Categoría</legend>
+          <div class="timeline-category-options">
+            <% categories.forEach((category) => { %>
+              <label class="timeline-category-option" style="--cat-color: <%= category.color %>">
+                <input type="radio" name="category" value="<%= category.value %>" required>
+                <span><%= category.label %></span>
+              </label>
+            <% }) %>
+          </div>
+        </fieldset>
+
+        <label>
+          Fecha del momento <span class="required">*</span>
+          <input type="date" name="event_date" value="<%= today %>" required>
+          <small class="hint">La cronología ordena los momentos de la fecha más antigua (arriba) a la más reciente (abajo).</small>
+        </label>
+
+        <fieldset class="timeline-character-fieldset">
+          <legend>Personajes vinculados <span class="required">*</span></legend>
+
+          <% if (characters.length) { %>
+            <input
+              type="search"
+              class="timeline-character-search"
+              id="timelineCharacterSearch"
+              placeholder="Buscar personaje por nombre o cuenta…"
+              autocomplete="off"
+              aria-label="Buscar personaje"
+            >
+
+            <div class="timeline-character-picker" id="timelineCharacterPicker">
+              <% characters.forEach((character) => { %>
+                <label class="timeline-character-option">
+                  <input type="checkbox" name="character_ids" value="<%= character.id %>">
+                  <span class="timeline-character-card">
+                    <span class="timeline-character-avatar mini-avatar">
+                      <% if (character.cover) { %>
+                        <img src="<%= getImageUrl(character.cover) %>" alt="" loading="lazy">
+                      <% } else { %>
+                        <%= initials(character.name) %>
+                      <% } %>
+                    </span>
+                    <span class="timeline-character-card-info">
+                      <strong><%= character.name %></strong>
+                      <% if (character.username) { %><small>@<%= character.username %></small><% } %>
+                    </span>
+                    <span class="timeline-character-check" aria-hidden="true">✓</span>
+                  </span>
+                </label>
+              <% }) %>
+            </div>
+
+            <p class="hint timeline-character-empty" id="timelineCharacterEmpty" hidden>
+              No se encontraron personajes con esa búsqueda.
+            </p>
+
+            <small class="hint timeline-character-hint">
+              Toca las tarjetas para elegir uno o varios personajes, propios o de otras cuentas.
+              <span class="timeline-character-selected" id="timelineCharacterCount">0 seleccionados</span>
+            </small>
+          <% } else { %>
+            <p class="hint">Todavía no hay personajes disponibles. Crea uno primero para vincularlo.</p>
+          <% } %>
+        </fieldset>
+
+        <label>
+          Momento <span class="required">*</span>
+          <textarea
+            name="content"
+            id="timelineContent"
+            rows="7"
+            maxlength="<%= maxLength %>"
+            required
+            placeholder="Cuenta qué ocurrió, por qué es importante y cómo cambió la historia…"
+          ></textarea>
+          <small class="hint timeline-counter"><span id="timelineCount">0</span> / <%= maxLength %> caracteres</small>
+        </label>
+
+        <button type="submit" class="btn btn-primary btn-block">Publicar momento</button>
+      </form>
+    <% } else { %>
+      <p class="muted">
+        Inicia sesión para agregar momentos a la cronología y vincularlos con tus personajes o los de otras personas.
+      </p>
+      <div class="timeline-composer-guest-actions">
+        <a class="btn btn-primary" href="/auth/login">Iniciar sesión</a>
+        <a class="btn btn-ghost" href="/auth/register">Crear cuenta</a>
+      </div>
+    <% } %>
+  </div>
+</details>
+
+<section class="timeline-stage" aria-label="Línea de tiempo de la comunidad">
+  <div class="timeline-rail" aria-hidden="true">
+    <span class="timeline-rail-progress" id="timelineProgress"></span>
+  </div>
+
+  <div class="timeline-cap timeline-cap-top" aria-hidden="true">
+    <span>El comienzo</span>
+  </div>
+
+  <% if (events.length) { %>
+    <%
+      const groups = [];
+      events.forEach((event) => {
+        const key = event.event_date || '';
+        const last = groups[groups.length - 1];
+        if (last && last.date === key) {
+          last.events.push(event);
+        } else {
+          groups.push({ date: key, events: [event] });
+        }
+      });
+
+      const zoneDefinitions = [
+        { key: 'principal', size: 'principal' },
+        { key: 'importante', size: 'normal' },
+        { key: 'secundario', size: 'small' },
+        { key: 'historia', size: 'small' },
+        { key: 'relevante', size: 'medium' }
+      ];
+    %>
+    <ol class="timeline-track">
+      <% groups.forEach((group) => { %>
+        <% const groupDate = formatDateParts(group.date || group.events[0].created_at); %>
+        <% if (group.events.length === 1) { %>
+          <% const event = group.events[0]; %>
+          <% const category = timelineCategoryInfo(event.category); %>
+          <li class="timeline-entry" style="--timeline-color: <%= category.color %>">
+            <div class="timeline-node" aria-hidden="true">
+              <span class="timeline-node-day"><%= groupDate.day %></span>
+              <span class="timeline-node-month"><%= groupDate.month %></span>
+            </div>
+            <%- include('./_moment-card', { event: event, cardSize: 'normal' }) %>
+          </li>
+        <% } else { %>
+          <%
+            const byCategory = {};
+            group.events.forEach((event) => {
+              if (!byCategory[event.category]) byCategory[event.category] = [];
+              byCategory[event.category].push(event);
+            });
+            const groupColor = byCategory.principal
+              ? timelineCategoryInfo(byCategory.principal[0].category).color
+              : timelineCategoryInfo(group.events[0].category).color;
+          %>
+          <li
+            class="timeline-entry timeline-entry-group"
+            style="--timeline-color: <%= groupColor %>"
+          >
+            <div class="timeline-cluster">
+              <% zoneDefinitions.forEach((zone) => { %>
+                <% if (byCategory[zone.key] && byCategory[zone.key].length) { %>
+                  <div class="timeline-cluster-zone zone-<%= zone.key %>">
+                    <% byCategory[zone.key].forEach((event) => { %>
+                      <%- include('./_moment-card', { event: event, cardSize: zone.size }) %>
+                    <% }) %>
+                  </div>
+                <% } %>
+              <% }) %>
+
+              <div class="timeline-cluster-node" aria-hidden="true">
+                <div class="timeline-node timeline-node-group">
+                  <span class="timeline-node-day"><%= groupDate.day %></span>
+                  <span class="timeline-node-month"><%= groupDate.month %></span>
+                </div>
+              </div>
+            </div>
+          </li>
+        <% } %>
+      <% }) %>
+    </ol>
+  <% } else { %>
+    <div class="empty-state timeline-empty">
+      <span class="empty-icon">🕰️</span>
+      <h3>Todavía no hay momentos en la cronología</h3>
+      <p>Sé la primera persona en contar un momento clave y vincularlo con sus personajes.</p>
+      <% if (user) { %>
+        <a class="btn btn-primary" href="#agregar-momento" data-open-composer>Agregar el primer momento</a>
+      <% } else { %>
+        <a class="btn btn-primary" href="/auth/login">Iniciar sesión</a>
+      <% } %>
+    </div>
+  <% } %>
+
+  <div class="timeline-cap timeline-cap-bottom" aria-hidden="true">
+    <span>La historia continúa…</span>
+  </div>
+</section>
+
+<script>
+  (function () {
+    var composer = document.getElementById('agregar-momento');
+    var openers = document.querySelectorAll('[data-open-composer]');
+
+    if (composer && openers.length) {
+      openers.forEach(function (link) {
+        link.addEventListener('click', function () {
+          composer.open = true;
+          window.requestAnimationFrame(function () {
+            composer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+      });
+    }
+
+    if (composer && window.location.hash === '#agregar-momento') {
+      composer.open = true;
+    }
+
+    var content = document.getElementById('timelineContent');
+    var counter = document.getElementById('timelineCount');
+    if (content && counter) {
+      var updateCounter = function () {
+        counter.textContent = String(content.value.length);
+      };
+      content.addEventListener('input', updateCounter);
+      updateCounter();
+    }
+
+    var characterPicker = document.getElementById('timelineCharacterPicker');
+    var characterSearch = document.getElementById('timelineCharacterSearch');
+    var characterEmpty = document.getElementById('timelineCharacterEmpty');
+    var characterCount = document.getElementById('timelineCharacterCount');
+    var characterInputs = characterPicker
+      ? Array.prototype.slice.call(characterPicker.querySelectorAll('input[name="character_ids"]'))
+      : [];
+
+    var updateCharacterCount = function () {
+      var selected = characterInputs.filter(function (input) {
+        return input.checked;
+      }).length;
+
+      if (characterCount) {
+        characterCount.textContent = selected + (selected === 1 ? ' seleccionado' : ' seleccionados');
+      }
+
+      if (characterInputs[0]) {
+        characterInputs[0].setCustomValidity(
+          selected === 0 ? 'Selecciona al menos un personaje para el momento.' : ''
+        );
+      }
+
+      return selected;
+    };
+
+    if (characterInputs.length) {
+      characterInputs.forEach(function (input) {
+        input.addEventListener('change', updateCharacterCount);
+      });
+      updateCharacterCount();
+    }
+
+    if (characterSearch && characterPicker) {
+      var characterOptions = Array.prototype.slice.call(
+        characterPicker.querySelectorAll('.timeline-character-option')
+      );
+
+      characterSearch.addEventListener('input', function () {
+        var term = characterSearch.value.trim().toLowerCase();
+        var visible = 0;
+
+        characterOptions.forEach(function (option) {
+          var matches = option.textContent.toLowerCase().indexOf(term) !== -1;
+          option.hidden = !matches;
+          if (matches) visible += 1;
+        });
+
+        if (characterEmpty) {
+          characterEmpty.hidden = visible !== 0;
+        }
+      });
+    }
+
+    if (composer) {
+      var composerForm = composer.querySelector('form');
+      if (composerForm) {
+        composerForm.addEventListener('submit', function (event) {
+          if (updateCharacterCount() === 0) {
+            event.preventDefault();
+            if (characterInputs[0]) {
+              characterInputs[0].reportValidity();
+              characterInputs[0].focus();
+            }
+          }
+        });
+      }
+    }
+
+    var stage = document.querySelector('.timeline-stage');
+    var progress = document.getElementById('timelineProgress');
+    if (stage && progress) {
+      var ticking = false;
+      var updateProgress = function () {
+        var rect = stage.getBoundingClientRect();
+        var viewport = window.innerHeight || document.documentElement.clientHeight;
+        var scrolled = Math.min(Math.max(viewport * 0.55 - rect.top, 0), rect.height);
+        var percent = rect.height > 0 ? (scrolled / rect.height) * 100 : 0;
+        progress.style.height = percent + '%';
+        ticking = false;
+      };
+
+      window.addEventListener('scroll', function () {
+        if (!ticking) {
+          ticking = true;
+          window.requestAnimationFrame(updateProgress);
+        }
+      }, { passive: true });
+      window.addEventListener('resize', updateProgress);
+      updateProgress();
+    }
+  })();
+</script>
+
+<%- include('../partials/footer') %>

@@ -60,22 +60,46 @@
   const photoInput = document.getElementById('photoInput');
   const nicknameContainer = document.getElementById('photoNicknames');
   const characterForm = document.getElementById('characterForm');
+  const photoSelectionHint = document.getElementById('photoSelectionHint');
 
   if (photoInput && nicknameContainer && characterForm) {
     const fieldName = characterForm.getAttribute('data-nickname-field') || 'photo_nicknames';
+    const existingCount = parseInt(characterForm.getAttribute('data-existing-count'), 10) || 0;
+    const maxPhotos = 12;
+    const selected = [];
 
-    photoInput.addEventListener('change', () => {
+    let supportsDataTransfer = false;
+    try {
+      // Al asignar un FileList nuevo conservamos las fotos elegidas antes.
+      new window.DataTransfer();
+      supportsDataTransfer = true;
+    } catch (error) {
+      supportsDataTransfer = false;
+    }
+
+    function fileKey(file) {
+      return `${file.name}::${file.size}::${file.lastModified}`;
+    }
+
+    function syncInput() {
+      if (!supportsDataTransfer) return;
+      const transfer = new DataTransfer();
+      selected.forEach((entry) => transfer.items.add(entry.file));
+      photoInput.files = transfer.files;
+    }
+
+    function updateHint() {
+      if (!photoSelectionHint) return;
+      const remaining = Math.max(0, maxPhotos - existingCount - selected.length);
+      photoSelectionHint.textContent = remaining === 0
+        ? 'Ya está el máximo de 12 fotos para este personaje.'
+        : `Puedes elegir ${remaining} foto${remaining === 1 ? '' : 's'} más. Las fotos se acumulan entre selecciones.`;
+    }
+
+    function renderSelection() {
       nicknameContainer.innerHTML = '';
 
-      let files = Array.from(photoInput.files || []);
-
-      if (files.length > 12) {
-        window.alert('Puedes subir hasta 12 fotos por personaje.');
-        photoInput.value = '';
-        files = [];
-      }
-
-      files.forEach((file, index) => {
+      selected.forEach((entry, index) => {
         const wrapper = document.createElement('label');
         wrapper.className = 'photo-nickname';
 
@@ -83,17 +107,18 @@
         preview.className = 'photo-nickname-preview';
 
         try {
+          const url = URL.createObjectURL(entry.file);
           const image = document.createElement('img');
-          image.src = URL.createObjectURL(file);
+          image.src = url;
           image.alt = '';
-          image.onload = () => URL.revokeObjectURL(image.src);
+          image.onload = () => URL.revokeObjectURL(url);
           preview.appendChild(image);
         } catch (error) {
           // Si el navegador no permite previsualizar, igual mostramos el nombre.
         }
 
         const fileName = document.createElement('span');
-        fileName.textContent = `Foto ${index + 1}: ${file.name}`;
+        fileName.textContent = `Foto ${existingCount + index + 1}: ${entry.file.name}`;
         preview.appendChild(fileName);
 
         const text = document.createElement('span');
@@ -104,13 +129,64 @@
         input.name = fieldName;
         input.maxLength = 60;
         input.placeholder = 'Ej: Outfit de invierno';
+        input.value = entry.nickname || '';
+        input.addEventListener('input', () => {
+          entry.nickname = input.value;
+        });
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'photo-remove';
+        remove.textContent = 'Quitar de la selección';
+        remove.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          selected.splice(index, 1);
+          syncInput();
+          renderSelection();
+          updateHint();
+        });
 
         wrapper.appendChild(preview);
         wrapper.appendChild(text);
         wrapper.appendChild(input);
+        wrapper.appendChild(remove);
         nicknameContainer.appendChild(wrapper);
       });
+    }
+
+    photoInput.addEventListener('change', () => {
+      const incoming = Array.from(photoInput.files || []);
+      const known = new Set(selected.map((entry) => fileKey(entry.file)));
+      const fresh = [];
+
+      incoming.forEach((file) => {
+        const key = fileKey(file);
+        if (known.has(key)) return;
+        known.add(key);
+        fresh.push(file);
+      });
+
+      const available = Math.max(0, maxPhotos - existingCount - selected.length);
+
+      if (fresh.length > available) {
+        window.alert(
+          available === 0
+            ? 'Ya tienes 12 fotos. Quita alguna antes de agregar otra.'
+            : `Solo puedes agregar ${available} foto${available === 1 ? '' : 's'} más para llegar al máximo de 12.`
+        );
+      }
+
+      fresh.slice(0, available).forEach((file) => {
+        selected.push({ file, nickname: '' });
+      });
+
+      syncInput();
+      renderSelection();
+      updateHint();
     });
+
+    updateHint();
   }
 
   // --- Galería de la ficha ---------------------------------------------

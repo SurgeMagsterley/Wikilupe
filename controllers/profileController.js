@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const db = require('../config/database');
 const Character = require('../models/Character');
 const User = require('../models/User');
 const { setFlash } = require('../middlewares/auth');
@@ -45,11 +46,13 @@ async function publicShow(req, res) {
 
   const characters = await Character.listByUser(account.id);
   const totalPhotos = characters.reduce((total, character) => total + (parseInt(character.image_count, 10) || 0), 0);
+  const featured = await Character.featuredByUser(account.id, 3);
 
   return res.render('users/show', {
     title: `@${account.username}`,
     account,
     characters,
+    featured,
     totalPhotos
   });
 }
@@ -77,6 +80,40 @@ async function updateAvatar(req, res) {
     console.error('Error subiendo avatar:', error.message);
     setFlash(req, 'error', 'No se pudo subir la foto de perfil.');
     return res.redirect('/perfil');
+  }
+}
+
+async function updateFeatured(req, res, next) {
+  try {
+    const characters = await Character.listByUser(req.user.id);
+    const ownedIds = new Set(characters.map((character) => character.id));
+    const selected = [];
+
+    for (let position = 1; position <= 3; position += 1) {
+      const raw = Number(req.body[`featured_${position}`]);
+      if (!Number.isInteger(raw) || raw <= 0) continue;
+
+      if (!ownedIds.has(raw)) {
+        setFlash(req, 'error', 'Solo puedes destacar personajes de tu propia cuenta.');
+        return res.redirect('/perfil#destacados');
+      }
+
+      if (selected.includes(raw)) {
+        setFlash(req, 'error', 'No puedes repetir el mismo personaje en dos posiciones.');
+        return res.redirect('/perfil#destacados');
+      }
+
+      selected.push(raw);
+    }
+
+    await db.transaction(async (client) => {
+      await Character.setFeatured(req.user.id, selected, client);
+    });
+
+    setFlash(req, 'success', 'Personajes destacados actualizados.');
+    return res.redirect('/perfil#destacados');
+  } catch (error) {
+    return next(error);
   }
 }
 
@@ -123,5 +160,6 @@ module.exports = {
   listPublic,
   publicShow,
   updateAvatar,
+  updateFeatured,
   changePassword
 };

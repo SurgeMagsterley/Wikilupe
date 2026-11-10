@@ -164,23 +164,25 @@ function imageNicknames(body, field) {
   return raw ? [raw] : [];
 }
 
-async function saveNewImages(characterId, files, nicknames, startPosition) {
-  if (!files || files.length === 0) return;
-  for (let index = 0; index < files.length; index += 1) {
-    const file = files[index];
-    try {
-      const uploaded = await uploadToSupabase(file.buffer, file.mimetype, file.originalname, 'characters');
-      file.supabasePath = uploaded.filename;
-      await CharacterImage.add(
-        characterId,
-        uploaded.filename,
-        clean(nicknames[index], 60),
-        startPosition + index
-      );
-    } catch (error) {
-      console.error('Error subiendo imagen a Supabase:', error.message);
-    }
-  }
+function groupRelations(relations) {
+  return RELATION_TYPES.map((type) => ({
+    ...type,
+    items: relations.filter((relation) => relation.relation_type === type.value)
+  }));
+}
+
+async function loadRelationData(characterId) {
+  const [relations, candidates] = await Promise.all([
+    Relation.listByCharacter(characterId),
+    Character.allForSelect(characterId)
+  ]);
+
+  return {
+    relations,
+    relationGroups: groupRelations(relations),
+    relationCount: relations.length,
+    candidates
+  };
 }
 
 /**
@@ -213,6 +215,9 @@ function renderCharacterForm(res, options) {
     images: options.images || [],
     errors: options.errors || [],
     candidates: options.candidates || [],
+    relations: options.relations || [],
+    relationGroups: options.relationGroups || [],
+    relationCount: options.relationCount || 0,
     showQuickIndex: options.showQuickIndex === true
   });
 }
@@ -270,11 +275,6 @@ async function show(req, res) {
     { label: 'Velocidad', icon: '💨', value: character.stat_speed }
   ];
 
-  const relationGroups = RELATION_TYPES.map((type) => ({
-    ...type,
-    items: relations.filter((relation) => relation.relation_type === type.value)
-  }));
-
   const theme = elementTheme(character.element);
 
   const titleList = String(character.titles || '')
@@ -299,8 +299,6 @@ async function show(req, res) {
     { label: 'Estilo de combate', value: character.combat_style, icon: '🥋' }
   ].filter((item) => item.value);
 
-  const candidates = editable ? await Character.allForSelect(character.id) : [];
-
   return res.render('characters/show', {
     title: character.name,
     character,
@@ -308,7 +306,6 @@ async function show(req, res) {
     facts,
     stats,
     hasStats: stats.some((stat) => stat.value !== null && stat.value !== undefined),
-    relationGroups,
     relationCount: relations.length,
     editable,
     theme,
@@ -316,8 +313,7 @@ async function show(req, res) {
     heroImage: character.bg_image || '',
     titleList,
     infoItems,
-    combatItems,
-    candidates
+    combatItems
   });
 }
 
@@ -360,19 +356,26 @@ async function create(req, res, next) {
     }
 
     // 1) Subir imágenes (servicio externo, fuera de la transacción).
-    const uploadedPhotos = await uploadPhotos(photoFiles, imageNicknames(req.body, 'photo_nicknames'));
+    const uploadedPhotos = (await uploadPhotos(photoFiles, imageNicknames(req.body, 'photo_nicknames'))).slice(0, 12);
 
     // 2) Guardar personaje, imágenes y datos curiosos todo junto: o se guarda todo o nada.
     const characterId = await db.transaction(async (client) => {
       const newId = await Character.create(req.user.id, values, client);
       for (let i = 0; i < uploadedPhotos.length; i += 1) {
-        await CharacterImage.add(newId, uploadedPhotos[i].filename, uploadedPhotos[i].nickname, i, client);
+        await CharacterImage.add(
+          newId,
+          uploadedPhotos[i].filename,
+          uploadedPhotos[i].nickname,
+          i,
+          client,
+          i === 0
+        );
       }
       await Fact.replaceAll(newId, facts, client);
       return newId;
     });
 
-    setFlash(req, 'success', '¡Personaje creado! Ya puedes agregar sus relaciones desde la ficha.');
+    setFlash(req, 'success', '¡Personaje creado! Puedes elegir su imagen principal y sus relaciones desde "Editar personaje".');
     return res.redirect(`/personajes/${characterId}`);
   } catch (error) {
     cleanupUploads(photoFiles);
@@ -392,9 +395,10 @@ async function showEdit(req, res) {
     return res.status(403).render('errors/403', { title: 'Acceso denegado' });
   }
 
-  const [images, facts] = await Promise.all([
+  const [images, facts, relationData] = await Promise.all([
     CharacterImage.listByCharacter(character.id),
-    Fact.listByCharacter(character.id)
+    Fact.listByCharacter(character.id),
+    loadRelationData(character.id)
   ]);
 
   return renderCharacterForm(res, {
@@ -403,6 +407,7 @@ async function showEdit(req, res) {
     character,
     values: valuesFromCharacter(character, images, facts),
     images,
+    ...relationData,
     showQuickIndex: true
   });
 }
@@ -433,6 +438,7 @@ async function update(req, res, next) {
     if (errors.length) {
       cleanupUploads(photoFiles);
       if (bgFile && bgFile.supabasePath) removeFile('characters', bgFile.supabasePath);
+      const relationData = await loadRelationData(character.id);
       return renderCharacterForm(res, {
         status: 400,
         title: `Editar ${character.name}`,
@@ -441,6 +447,7 @@ async function update(req, res, next) {
         values,
         images,
         errors,
+        ...relationData,
         showQuickIndex: true
       });
     }
@@ -462,25 +469,71 @@ async function update(req, res, next) {
       values.bgImage = character.bg_image || '';
     }
 
-    await Character.update(character.id, values);
+    const removedImages = images.filter((image) => String(req.body[`remove_image_${image.id}`]) === '1');
+    const keptImages = images.filter((image) => String(req.body[`remove_image_${image.id}`]) !== '1');
+    const allowedNewPhotos = Math.max(0, 12 - keptImages.length);
+    const newPhotoFiles = photoFiles.slice(0, allowedNewPhotos);
+    const uploadedPhotos = await uploadPhotos(
+      newPhotoFiles,
+      imageNicknames(req.body, 'new_nicknames')
+    );
 
-    for (let i = 0; i < images.length; i += 1) {
-      const image = images[i];
-      if (String(req.body[`remove_image_${image.id}`]) === '1') {
-        await CharacterImage.remove(image.id);
-        removeFile('characters', image.filename);
-        continue;
+    await db.transaction(async (client) => {
+      await Character.update(character.id, values, client);
+
+      for (const image of images) {
+        if (String(req.body[`remove_image_${image.id}`]) === '1') {
+          await CharacterImage.remove(image.id, client);
+          continue;
+        }
+
+        const nicknameField = req.body[`nickname_${image.id}`];
+        if (nicknameField !== undefined) {
+          await CharacterImage.updateNickname(image.id, clean(nicknameField, 60), client);
+        }
       }
 
-      const nicknameField = req.body[`nickname_${image.id}`];
-      if (nicknameField !== undefined) {
-        await CharacterImage.updateNickname(image.id, clean(nicknameField, 60));
-      }
-    }
+      const positionRow = await client.query(
+        'SELECT COALESCE(MAX(position), -1) AS max_position FROM character_images WHERE character_id = $1',
+        [character.id]
+      );
+      let nextPosition = Number(positionRow.rows[0].max_position) + 1;
 
-    const remainingImages = await CharacterImage.listByCharacter(character.id);
-    await saveNewImages(character.id, photoFiles, imageNicknames(req.body, 'new_nicknames'), remainingImages.length);
-    await Fact.replaceAll(character.id, facts);
+      for (const photo of uploadedPhotos) {
+        await CharacterImage.add(
+          character.id,
+          photo.filename,
+          photo.nickname,
+          nextPosition,
+          client,
+          false
+        );
+        nextPosition += 1;
+      }
+
+      await Fact.replaceAll(character.id, facts, client);
+
+      const requestedPrimary = Number(req.body.primary_image);
+      let primaryId = null;
+
+      if (Number.isInteger(requestedPrimary) && requestedPrimary > 0) {
+        const primaryCheck = await client.query(
+          'SELECT id FROM character_images WHERE id = $1 AND character_id = $2',
+          [requestedPrimary, character.id]
+        );
+        if (primaryCheck.rows.length > 0) {
+          primaryId = requestedPrimary;
+        }
+      }
+
+      if (primaryId) {
+        await CharacterImage.setPrimary(character.id, primaryId, client);
+      } else {
+        await CharacterImage.ensurePrimary(character.id, client);
+      }
+    });
+
+    removedImages.forEach((image) => removeFile('characters', image.filename));
 
     setFlash(req, 'success', 'Cambios guardados correctamente.');
     return res.redirect(`/personajes/${character.id}`);
@@ -534,8 +587,8 @@ async function addRelation(req, res) {
   const relatedId = Number(req.body.related_character_id);
 
   if (!RELATION_NAMES.includes(relationType)) {
-    setFlash(req, 'error', 'Elige un tipo de relación válido (familiar, amigo o conocido).');
-    return res.redirect(`/personajes/${character.id}#relaciones`);
+    setFlash(req, 'error', 'Elige un tipo de relación válido (familiar, amigo, conocido, pareja o casado/a).');
+    return res.redirect(`/personajes/${character.id}/editar#relaciones`);
   }
 
   let relatedCharacter = null;
@@ -543,19 +596,19 @@ async function addRelation(req, res) {
   if (Number.isInteger(relatedId) && relatedId > 0) {
     if (relatedId === character.id) {
       setFlash(req, 'error', 'Un personaje no puede relacionarse consigo mismo.');
-      return res.redirect(`/personajes/${character.id}#relaciones`);
+      return res.redirect(`/personajes/${character.id}/editar#relaciones`);
     }
 
     relatedCharacter = await Character.findById(relatedId);
     if (!relatedCharacter) {
       setFlash(req, 'error', 'Ese personaje ya no existe. Recarga la página e intenta de nuevo.');
-      return res.redirect(`/personajes/${character.id}#relaciones`);
+      return res.redirect(`/personajes/${character.id}/editar#relaciones`);
     }
   }
 
   if (!relatedCharacter && !externalName) {
     setFlash(req, 'error', 'Elige un personaje del sitio o escribe el nombre de un personaje externo.');
-    return res.redirect(`/personajes/${character.id}#relaciones`);
+    return res.redirect(`/personajes/${character.id}/editar#relaciones`);
   }
 
   const existing = await Relation.listByCharacter(character.id);
@@ -568,12 +621,12 @@ async function addRelation(req, res) {
 
   if (duplicated) {
     setFlash(req, 'info', 'Esa relación ya estaba registrada.');
-    return res.redirect(`/personajes/${character.id}#relaciones`);
+    return res.redirect(`/personajes/${character.id}/editar#relaciones`);
   }
 
   await Relation.add(character.id, relationType, relatedCharacter ? relatedCharacter.id : null, externalName || null);
   setFlash(req, 'success', 'Relación agregada al árbol.');
-  return res.redirect(`/personajes/${character.id}#relaciones`);
+  return res.redirect(`/personajes/${character.id}/editar#relaciones`);
 }
 
 async function removeRelation(req, res) {
@@ -590,12 +643,12 @@ async function removeRelation(req, res) {
   const relation = await Relation.findById(req.params.relationId);
   if (!relation || relation.character_id !== character.id) {
     setFlash(req, 'error', 'Esa relación no existe.');
-    return res.redirect(`/personajes/${character.id}#relaciones`);
+    return res.redirect(`/personajes/${character.id}/editar#relaciones`);
   }
 
   await Relation.remove(relation.id, character.id);
   setFlash(req, 'success', 'Relación eliminada.');
-  return res.redirect(`/personajes/${character.id}#relaciones`);
+  return res.redirect(`/personajes/${character.id}/editar#relaciones`);
 }
 
 module.exports = {
